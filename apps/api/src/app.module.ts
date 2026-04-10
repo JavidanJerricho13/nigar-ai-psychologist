@@ -7,6 +7,7 @@ import { EncryptionModule } from './common/encryption/encryption.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { UserModule } from './modules/user/user.module';
 import { CommandRouterModule } from './modules/command-router/command-router.module';
+import { ChatModule } from './modules/chat/chat.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -22,6 +23,7 @@ import { HealthController } from './health.controller';
     OnboardingModule,
     UserModule,
     CommandRouterModule,
+    ChatModule,
   ],
   controllers: [HealthController],
 })
