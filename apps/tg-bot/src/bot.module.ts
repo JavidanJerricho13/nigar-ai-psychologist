@@ -17,6 +17,7 @@ import { CommandHandler } from './handlers/command.handler';
 import { MessageHandler } from './handlers/message.handler';
 import { CallbackQueryHandler } from './handlers/callback-query.handler';
 import { VoiceHandler } from './handlers/voice.handler';
+import { VoiceDownloadService } from './services/voice-download.service';
 
 @Module({
   imports: [
@@ -41,6 +42,9 @@ import { VoiceHandler } from './handlers/voice.handler';
 
     // Bot core
     BotService,
+
+    // Services
+    VoiceDownloadService,
 
     // Handlers
     CommandHandler,
