@@ -1,9 +1,10 @@
 /**
  * Bot entry point — runs within the API's NestJS context.
- * This avoids the dual-compilation issue by using the same module instances.
  *
- * Usage: nest start --entryFile bot-entry
+ * Usage: node dist/bot-entry.js   (from apps/api/ or project root)
  */
+import * as path from 'path';
+
 import { initSentry } from './common/sentry/sentry.init';
 initSentry();
 
@@ -52,6 +53,11 @@ function renderStepOutput(output: StepOutput) {
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [
+        path.resolve(process.cwd(), '.env'),              // project root
+        path.resolve(__dirname, '../../../.env'),           // from dist/
+        path.resolve(__dirname, '../../.env'),              // from src/
+      ],
       load: [configuration],
       validate: validationSchema,
     }),
