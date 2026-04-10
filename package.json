@@ -1,0 +1,29 @@
+{
+  "name": "aipsychologist",
+  "version": "0.1.0",
+  "private": true,
+  "description": "AI Psychologist Nigar — Telegram bot & API backend",
+  "packageManager": "pnpm@10.33.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@nestjs/core",
+      "@prisma/client",
+      "@prisma/engines",
+      "prisma"
+    ]
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "typecheck": "turbo typecheck",
+    "db:generate": "pnpm --filter @nigar/prisma-client generate",
+    "db:migrate": "pnpm --filter @nigar/prisma-client migrate:dev",
+    "db:push": "pnpm --filter @nigar/prisma-client db:push",
+    "clean": "turbo clean"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@nigar/tg-bot",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "ts-node --transpile-only src/main.ts",
+    "start": "node dist/main.js",
+    "lint": "eslint \"src/**/*.ts\"",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "grammy": "^1.35.0",
+    "@nigar/shared-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@nigar/eslint-config": "workspace:*",
+    "@nigar/tsconfig": "workspace:*",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.7.0"
+  }
+}
