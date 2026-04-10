@@ -14,6 +14,8 @@
     "test:integration": "jest --testPathPattern='test/integration' --no-cache --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage --testPathPattern='src/'",
+    "bot:dev": "nest start --watch --entryFile bot-entry",
+    "bot:start": "node dist/bot-entry",
     "clean": "rm -rf dist"
   },
   "dependencies": {
@@ -29,6 +31,7 @@
     "@sentry/node": "^9.0.0",
     "bullmq": "^5.0.0",
     "fluent-ffmpeg": "^2.1.0",
+    "grammy": "^1.35.0",
     "ioredis": "^5.4.0",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.0",

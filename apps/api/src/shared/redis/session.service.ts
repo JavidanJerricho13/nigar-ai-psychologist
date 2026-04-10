@@ -1,6 +1,6 @@
 import { Injectable, Inject, Logger } from '@nestjs/common';
-import Redis from 'ioredis';
-import { REDIS_CLIENT } from './redis.module';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from './redis.constants';
 
 /** Safe JSON wrapper that never throws on parse failures */
 function safeJsonParse<T>(raw: string | null): T | null {

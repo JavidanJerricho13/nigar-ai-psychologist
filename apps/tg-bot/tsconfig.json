@@ -3,10 +3,7 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "../../",
-    "baseUrl": ".",
-    "paths": {
-      "@api/*": ["../api/src/*"]
-    }
+    "baseUrl": "."
   },
   "include": ["src", "../api/src"],
   "exclude": ["**/*.spec.ts", "**/__tests__/**", "../api/test/**"]

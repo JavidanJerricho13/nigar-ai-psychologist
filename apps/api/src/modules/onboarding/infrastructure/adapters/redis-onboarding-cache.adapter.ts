@@ -1,6 +1,6 @@
 import { Injectable, Inject } from '@nestjs/common';
-import Redis from 'ioredis';
-import { REDIS_CLIENT } from '../../../../shared/redis/redis.module';
+import type Redis from 'ioredis';
+import { REDIS_CLIENT } from '../../../../shared/redis/redis.constants';
 import { OnboardingCachePort } from '../../domain/ports/onboarding-cache.port';
 import { OnboardingState } from '../../domain/entities/onboarding-state.entity';
 

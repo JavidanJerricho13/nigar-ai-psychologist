@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "dev": "nest start --watch",
-    "start": "node dist/main",
-    "start:prod": "node dist/main",
+    "dev": "tsc --project tsconfig.build.json && cd ../.. && node apps/tg-bot/dist/apps/tg-bot/src/main.js",
+    "start": "node dist/apps/tg-bot/src/main.js",
+    "start:prod": "node dist/apps/tg-bot/src/main.js",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest --no-cache",
