@@ -77,15 +77,29 @@ class BotEntryModule implements OnModuleInit {
   constructor(private readonly router: CommandRouterService) {}
 
   async onModuleInit() {
-    this.bot = new Bot(loadBotToken());
+    const token = loadBotToken();
+    this.logger.log(`Bot token loaded (${token.slice(0, 5)}...${token.slice(-5)})`);
+
+    this.bot = new Bot(token);
     this.setupErrorHandler();
     this.registerHandlers();
 
-    await this.bot.api.deleteWebhook();
+    try {
+      this.logger.log('Deleting existing webhook...');
+      await this.bot.api.deleteWebhook();
+      this.logger.log('Webhook deleted, starting polling...');
+    } catch (err) {
+      this.logger.error(`Failed to delete webhook: ${(err as Error).message}`);
+    }
+
+    // bot.start() returns a Promise that resolves when bot stops
+    // Don't await it — it runs forever
     this.bot.start({
       onStart: (info) => {
-        this.logger.log(`🤖 Nigar Bot started as @${info.username} (polling)`);
+        this.logger.log(`🤖 Nigar Bot started as @${info.username} (polling mode)`);
       },
+    }).catch((err) => {
+      this.logger.error(`Bot polling failed: ${(err as Error).message}`);
     });
   }
 
@@ -200,8 +214,9 @@ class BotEntryModule implements OnModuleInit {
 
 async function bootstrap() {
   const app = await NestFactory.create(BotEntryModule, { logger: ['log', 'error', 'warn'] });
-  // Keep the process alive — bot.start() handles polling
-  Logger.log('🧠 Bot process initialized', 'Bootstrap');
+  // Trigger lifecycle hooks (onModuleInit → starts bot polling)
+  await app.init();
+  Logger.log('🧠 Bot process initialized and polling', 'Bootstrap');
 }
 
 bootstrap();
