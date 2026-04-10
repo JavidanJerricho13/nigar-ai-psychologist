@@ -19,7 +19,7 @@ export class PrivacyPolicyStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (input.type === 'callback' && input.value === 'accept') {
       return { valid: true };
     }
@@ -35,11 +35,11 @@ export class PrivacyPolicyStep implements StepDefinition {
     };
   }
 
-  extract(): Record<string, unknown> {
+  extract(_input: UserInput): Record<string, unknown> {
     return { privacyAccepted: true };
   }
 
-  nextStep(): string {
+  nextStep(_state: OnboardingState): string {
     return 'social_proof';
   }
 }

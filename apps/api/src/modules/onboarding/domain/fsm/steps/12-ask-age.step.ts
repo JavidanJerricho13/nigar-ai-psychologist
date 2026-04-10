@@ -13,7 +13,7 @@ export class AskAgeStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (input.type !== 'text') {
       return {
         valid: false,
@@ -42,7 +42,7 @@ export class AskAgeStep implements StepDefinition {
     return { age: parseInt(input.value.trim(), 10) };
   }
 
-  nextStep(): string {
+  nextStep(_state: OnboardingState): string {
     return 'ask_bio';
   }
 }

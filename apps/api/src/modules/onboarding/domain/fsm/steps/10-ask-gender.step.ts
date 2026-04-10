@@ -17,7 +17,7 @@ export class AskGenderStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (
       input.type === 'callback' &&
       ['male', 'female', 'skip'].includes(input.value)
@@ -42,7 +42,7 @@ export class AskGenderStep implements StepDefinition {
     return { gender: input.value };
   }
 
-  nextStep(): string {
+  nextStep(_state: OnboardingState): string {
     return 'ask_name';
   }
 }

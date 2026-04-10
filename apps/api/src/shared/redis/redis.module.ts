@@ -1,6 +1,7 @@
-import { Module, Global, OnModuleDestroy, Logger } from '@nestjs/common';
+import { Module, Global, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
+import { SessionService } from './session.service';
 
 export const REDIS_CLIENT = 'REDIS_CLIENT';
 
@@ -28,13 +29,8 @@ export const REDIS_CLIENT = 'REDIS_CLIENT';
       },
       inject: [ConfigService],
     },
+    SessionService,
   ],
-  exports: [REDIS_CLIENT],
+  exports: [REDIS_CLIENT, SessionService],
 })
-export class RedisModule implements OnModuleDestroy {
-  constructor(private readonly config: ConfigService) {}
-
-  async onModuleDestroy() {
-    // Redis client cleanup is handled by NestJS DI container
-  }
-}
+export class RedisModule {}

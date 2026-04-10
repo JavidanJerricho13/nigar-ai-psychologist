@@ -26,7 +26,7 @@ export class VoiceDemoStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (
       input.type === 'callback' &&
       ['voice', 'text', 'voice_and_text'].includes(input.value)
@@ -51,7 +51,7 @@ export class VoiceDemoStep implements StepDefinition {
     return { responseFormat: input.value };
   }
 
-  nextStep(): string {
+  nextStep(_state: OnboardingState): string {
     return 'ask_gender';
   }
 }

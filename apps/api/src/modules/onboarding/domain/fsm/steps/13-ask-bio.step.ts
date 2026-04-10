@@ -20,7 +20,7 @@ export class AskBioStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     // "Skip" button
     if (input.type === 'callback' && input.value === 'skip') {
       return { valid: true };
@@ -70,7 +70,7 @@ export class AskBioStep implements StepDefinition {
     return { bio: input.value.trim() };
   }
 
-  nextStep(): string | null {
+  nextStep(_state: OnboardingState): string | null {
     return null; // Last step — triggers completion
   }
 }

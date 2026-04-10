@@ -24,7 +24,7 @@ export class CredentialsStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (input.type === 'callback') return { valid: true };
     return {
       valid: false,
@@ -32,11 +32,11 @@ export class CredentialsStep implements StepDefinition {
     };
   }
 
-  extract(): Record<string, unknown> {
+  extract(_input: UserInput): Record<string, unknown> {
     return {};
   }
 
-  nextStep(): string {
+  nextStep(_state: OnboardingState): string {
     return 'heavy_warning';
   }
 }

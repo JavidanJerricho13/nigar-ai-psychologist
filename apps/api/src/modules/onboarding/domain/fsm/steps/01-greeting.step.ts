@@ -22,7 +22,7 @@ export class GreetingStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (input.type === 'callback' && ['next', 'skip'].includes(input.value)) {
       return { valid: true };
     }

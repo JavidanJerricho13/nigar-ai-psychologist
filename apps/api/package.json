@@ -10,8 +10,10 @@
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "test": "jest",
+    "test:unit": "jest --testPathPattern='src/' --no-cache",
+    "test:integration": "jest --testPathPattern='test/integration' --no-cache --runInBand",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test:cov": "jest --coverage --testPathPattern='src/'",
     "clean": "rm -rf dist"
   },
   "dependencies": {

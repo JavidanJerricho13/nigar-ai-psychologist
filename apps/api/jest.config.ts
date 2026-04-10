@@ -2,19 +2,24 @@ import type { Config } from 'jest';
 
 const config: Config = {
   moduleFileExtensions: ['js', 'json', 'ts'],
-  rootDir: 'src',
+  rootDir: '.',
+  roots: ['<rootDir>/src', '<rootDir>/test'],
   testRegex: '.*\\.spec\\.ts$',
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
-  collectCoverageFrom: ['**/*.(t|j)s', '!**/main.ts'],
-  coverageDirectory: '../coverage',
+  collectCoverageFrom: [
+    'src/**/*.(t|j)s',
+    '!src/**/main.ts',
+    '!src/**/*.module.ts',
+  ],
+  coverageDirectory: './coverage',
   testEnvironment: 'node',
   moduleNameMapper: {
-    '^@modules/(.*)$': '<rootDir>/modules/$1',
-    '^@common/(.*)$': '<rootDir>/common/$1',
-    '^@config/(.*)$': '<rootDir>/config/$1',
-    '^@shared/(.*)$': '<rootDir>/shared/$1',
+    '^@modules/(.*)$': '<rootDir>/src/modules/$1',
+    '^@common/(.*)$': '<rootDir>/src/common/$1',
+    '^@config/(.*)$': '<rootDir>/src/config/$1',
+    '^@shared/(.*)$': '<rootDir>/src/shared/$1',
   },
 };
 

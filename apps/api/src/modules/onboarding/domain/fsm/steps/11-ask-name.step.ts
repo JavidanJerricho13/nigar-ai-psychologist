@@ -13,7 +13,7 @@ export class AskNameStep implements StepDefinition {
     };
   }
 
-  validate(input: UserInput): ValidationResult {
+  validate(input: UserInput, _state: OnboardingState): ValidationResult {
     if (input.type === 'text' && input.value.trim().length > 0) {
       if (input.value.trim().length > 100) {
         return {
@@ -41,7 +41,7 @@ export class AskNameStep implements StepDefinition {
     return { name: input.value.trim() };
   }
 
-  nextStep(): string {
+  nextStep(_state: OnboardingState): string {
     return 'ask_age';
   }
 }
