@@ -8,6 +8,7 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { UserModule } from './modules/user/user.module';
 import { CommandRouterModule } from './modules/command-router/command-router.module';
 import { ChatModule } from './modules/chat/chat.module';
+import { AudioModule } from './modules/audio/audio.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -24,6 +25,7 @@ import { HealthController } from './health.controller';
     UserModule,
     CommandRouterModule,
     ChatModule,
+    AudioModule,
   ],
   controllers: [HealthController],
 })
