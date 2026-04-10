@@ -14,8 +14,8 @@
     "test:integration": "jest --testPathPattern='test/integration' --no-cache --runInBand",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage --testPathPattern='src/'",
-    "bot:dev": "nest start --watch --entryFile bot-entry",
-    "bot:start": "node dist/bot-entry",
+    "bot:dev": "tsc && node dist/bot-entry.js",
+    "bot:start": "node dist/bot-entry.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
