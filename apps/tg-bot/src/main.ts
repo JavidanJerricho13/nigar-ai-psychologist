@@ -1,25 +1,24 @@
-import { Bot } from 'grammy';
+import { NestFactory } from '@nestjs/core';
+import { Logger } from '@nestjs/common';
+import { BotModule } from './bot.module';
+import { BotService } from './adapters/bot.service';
 
-const token = process.env.TELEGRAM_BOT_TOKEN;
+async function bootstrap() {
+  const app = await NestFactory.create(BotModule);
+  const botService = app.get(BotService);
 
-if (!token) {
-  console.error('TELEGRAM_BOT_TOKEN is not set');
-  process.exit(1);
+  await botService.launch(app);
+
+  // Graceful shutdown
+  const shutdown = async (signal: string) => {
+    Logger.log(`Received ${signal}, shutting down...`, 'Bootstrap');
+    await botService.stop();
+    await app.close();
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-const bot = new Bot(token);
-
-bot.command('start', (ctx) =>
-  ctx.reply('Salam! Mən Nigar — sənin AI psixoloqunam. 🧠'),
-);
-
-bot.on('message:text', (ctx) =>
-  ctx.reply('Mesajınız qəbul olundu. Tezliklə tam funksionallıq aktiv olacaq.'),
-);
-
-// Long-polling for development
-bot.start({
-  onStart: (botInfo) => {
-    console.log(`🤖 Nigar TG Bot started as @${botInfo.username}`);
-  },
-});
+bootstrap();

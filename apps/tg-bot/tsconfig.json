@@ -1,8 +1,13 @@
 {
-  "extends": "@nigar/tsconfig/base.json",
+  "extends": "@nigar/tsconfig/nestjs.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "../../",
+    "baseUrl": ".",
+    "paths": {
+      "@api/*": ["../api/src/*"]
+    }
   },
-  "include": ["src"]
+  "include": ["src", "../api/src"],
+  "exclude": ["**/*.spec.ts", "**/__tests__/**", "../api/test/**"]
 }

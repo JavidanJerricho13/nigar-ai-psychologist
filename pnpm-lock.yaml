@@ -83,28 +83,64 @@ importers:
 
   apps/tg-bot:
     dependencies:
+      '@nestjs/common':
+        specifier: ^11.0.0
+        version: 11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/config':
+        specifier: ^4.0.0
+        version: 4.0.4(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@nestjs/core':
+        specifier: ^11.0.0
+        version: 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.18)(reflect-metadata@0.2.2)(rxjs@7.8.2)
+      '@nestjs/platform-express':
+        specifier: ^11.0.0
+        version: 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18)
+      '@nigar/prisma-client':
+        specifier: workspace:*
+        version: link:../../packages/prisma-client
       '@nigar/shared-types':
         specifier: workspace:*
         version: link:../../packages/shared-types
       grammy:
         specifier: ^1.35.0
         version: 1.42.0
+      ioredis:
+        specifier: ^5.4.0
+        version: 5.10.1
+      reflect-metadata:
+        specifier: ^0.2.0
+        version: 0.2.2
+      rxjs:
+        specifier: ^7.8.0
+        version: 7.8.2
+      zod:
+        specifier: ^3.24.0
+        version: 3.25.76
     devDependencies:
+      '@nestjs/cli':
+        specifier: ^11.0.0
+        version: 11.0.19(@types/node@22.19.17)
+      '@nestjs/schematics':
+        specifier: ^11.0.0
+        version: 11.0.10(chokidar@4.0.3)(typescript@5.9.3)
       '@nigar/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
       '@nigar/tsconfig':
         specifier: workspace:*
         version: link:../../packages/tsconfig
+      '@types/express':
+        specifier: ^5.0.0
+        version: 5.0.6
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
       eslint:
         specifier: ^9.0.0
         version: 9.39.4(jiti@2.6.1)
-      ts-node:
-        specifier: ^10.9.0
-        version: 10.9.2(@types/node@22.19.17)(typescript@5.9.3)
+      ts-loader:
+        specifier: ^9.5.0
+        version: 9.5.7(typescript@5.9.3)(webpack@5.106.0)
       typescript:
         specifier: ^5.7.0
         version: 5.9.3
@@ -3185,6 +3221,7 @@ snapshots:
   '@cspotcode/source-map-support@0.8.1':
     dependencies:
       '@jridgewell/trace-mapping': 0.3.9
+    optional: true
 
   '@eslint-community/eslint-utils@4.9.1(eslint@9.39.4(jiti@2.6.1))':
     dependencies:
@@ -3587,6 +3624,7 @@ snapshots:
     dependencies:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
+    optional: true
 
   '@lukeed/csprng@1.1.0': {}
 
@@ -3741,13 +3779,17 @@ snapshots:
 
   '@tokenizer/token@0.3.0': {}
 
-  '@tsconfig/node10@1.0.12': {}
+  '@tsconfig/node10@1.0.12':
+    optional: true
 
-  '@tsconfig/node12@1.0.11': {}
+  '@tsconfig/node12@1.0.11':
+    optional: true
 
-  '@tsconfig/node14@1.0.3': {}
+  '@tsconfig/node14@1.0.3':
+    optional: true
 
-  '@tsconfig/node16@1.0.4': {}
+  '@tsconfig/node16@1.0.4':
+    optional: true
 
   '@types/babel__core@7.20.5':
     dependencies:
@@ -4043,6 +4085,7 @@ snapshots:
   acorn-walk@8.3.5:
     dependencies:
       acorn: 8.16.0
+    optional: true
 
   acorn@8.16.0: {}
 
@@ -4100,7 +4143,8 @@ snapshots:
 
   append-field@1.0.0: {}
 
-  arg@4.1.3: {}
+  arg@4.1.3:
+    optional: true
 
   argparse@1.0.10:
     dependencies:
@@ -4388,7 +4432,8 @@ snapshots:
       - supports-color
       - ts-node
 
-  create-require@1.1.1: {}
+  create-require@1.1.1:
+    optional: true
 
   cross-spawn@7.0.6:
     dependencies:
@@ -4424,7 +4469,8 @@ snapshots:
 
   diff-sequences@29.6.3: {}
 
-  diff@4.0.4: {}
+  diff@4.0.4:
+    optional: true
 
   dotenv-expand@12.0.3:
     dependencies:
@@ -5931,6 +5977,7 @@ snapshots:
       typescript: 5.9.3
       v8-compile-cache-lib: 3.0.1
       yn: 3.1.1
+    optional: true
 
   tsconfig-paths-webpack-plugin@4.2.0:
     dependencies:
@@ -5999,7 +6046,8 @@ snapshots:
 
   util-deprecate@1.0.2: {}
 
-  v8-compile-cache-lib@3.0.1: {}
+  v8-compile-cache-lib@3.0.1:
+    optional: true
 
   v8-to-istanbul@9.3.0:
     dependencies:
@@ -6108,7 +6156,8 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  yn@3.1.1: {}
+  yn@3.1.1:
+    optional: true
 
   yocto-queue@0.1.0: {}
 

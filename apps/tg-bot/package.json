@@ -3,23 +3,36 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "tsc",
-    "dev": "ts-node --transpile-only src/main.ts",
-    "start": "node dist/main.js",
+    "build": "tsc --project tsconfig.build.json",
+    "dev": "nest start --watch",
+    "start": "node dist/main",
+    "start:prod": "node dist/main",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/config": "^4.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "@nigar/prisma-client": "workspace:*",
+    "@nigar/shared-types": "workspace:*",
     "grammy": "^1.35.0",
-    "@nigar/shared-types": "workspace:*"
+    "ioredis": "^5.4.0",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
+    "@nestjs/cli": "^11.0.0",
+    "@nestjs/schematics": "^11.0.0",
     "@nigar/eslint-config": "workspace:*",
     "@nigar/tsconfig": "workspace:*",
+    "@types/express": "^5.0.0",
     "@types/node": "^22.0.0",
     "eslint": "^9.0.0",
-    "ts-node": "^10.9.0",
+    "ts-loader": "^9.5.0",
     "typescript": "^5.7.0"
   }
 }
