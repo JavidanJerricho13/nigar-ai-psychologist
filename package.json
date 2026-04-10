@@ -10,6 +10,7 @@
       "@msgpackr-extract/msgpackr-extract-win32-x64",
       "@prisma/client",
       "@prisma/engines",
+      "@sentry/cli",
       "prisma"
     ]
   },
