@@ -5,7 +5,8 @@ const envSchema = z.object({
     .enum(['development', 'production', 'test'])
     .default('development'),
   API_PORT: z.coerce.number().default(3000),
-  DATABASE_URL: z.string().url(),
+  DATABASE_URL: z.string(),
+  DIRECT_URL: z.string().optional(),
   REDIS_URL: z.string().default('redis://localhost:6379'),
   ENCRYPTION_KEY: z.string().min(32),
   TELEGRAM_BOT_TOKEN: z.string().optional(),
