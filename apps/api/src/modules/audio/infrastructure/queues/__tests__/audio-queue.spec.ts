@@ -89,7 +89,7 @@ describe('AudioProducer', () => {
 
 describe('TranscriptionConsumer', () => {
   let consumer: TranscriptionConsumer;
-  const mockTranscribeUseCase: jest.Mocked<Partial<TranscribeVoiceUseCase>> = {
+  const mockTranscribeUseCase: any = {
     execute: jest.fn().mockResolvedValue({
       text: 'Salam, necəsən?',
       language: 'az',

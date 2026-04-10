@@ -8,6 +8,9 @@ import { IdentifyUserUseCase } from '../user/domain/use-cases/identify-user.use-
 import { GetUserFullProfileUseCase } from '../user/domain/use-cases/get-user-full-profile.use-case';
 import { UpdateSettingsUseCase } from '../user/domain/use-cases/update-settings.use-case';
 import { UpdateProfileUseCase } from '../user/domain/use-cases/update-profile.use-case';
+import { GetBalanceUseCase } from '../billing/domain/use-cases/get-balance.use-case';
+import { GetReferralInfoUseCase } from '../referral/domain/use-cases/get-referral-info.use-case';
+import { ApplyReferralUseCase } from '../referral/domain/use-cases/apply-referral.use-case';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
@@ -22,6 +25,9 @@ export class CommandRouterService {
     private readonly getFullProfile: GetUserFullProfileUseCase,
     private readonly updateSettings: UpdateSettingsUseCase,
     private readonly updateProfile: UpdateProfileUseCase,
+    private readonly getBalance: GetBalanceUseCase,
+    private readonly getReferralInfo: GetReferralInfoUseCase,
+    private readonly applyReferral: ApplyReferralUseCase,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -34,6 +40,19 @@ export class CommandRouterService {
         referralCode: request.deepLinkParam,
       });
       const userId = user.id;
+
+      // 1b. Apply referral if new user arrived via deep link
+      if (isNew && request.deepLinkParam) {
+        try {
+          await this.applyReferral.execute({
+            referredUserId: userId,
+            referralCode: request.deepLinkParam,
+          });
+          this.logger.log(`Referral applied for new user ${userId.slice(0, 8)}`);
+        } catch {
+          // Non-critical — referral code might be invalid or self-referral
+        }
+      }
 
       // 2. Check onboarding status
       const onboardingStatus = await this.getOnboardingStatus.execute(userId);
@@ -262,12 +281,15 @@ export class CommandRouterService {
   }
 
   private async handleBalance(userId: string): Promise<CommandResponse> {
-    // TODO: integrate with billing module when implemented
+    const balance = await this.getBalance.execute(userId);
+
     return this.buildResponse({
       text:
         `💰 Balans:\n\n` +
-        `📝 Mətn kreditləri: ∞ (beta)\n` +
-        `🎙 Səsli cavablar: 3 pulsuz qalıb\n\n` +
+        `💳 Kreditlər: ${balance.balance}\n` +
+        `🎙 Pulsuz səsli cavablar: ${balance.freeVoiceRemaining}\n` +
+        `📊 Ümumi alınıb: ${balance.totalPurchased}\n` +
+        `📊 Ümumi xərclənib: ${balance.totalSpent}\n\n` +
         `/pay - Kredit al\n` +
         `/referral - Pulsuz kredit qazan`,
       inputType: 'text',
@@ -275,15 +297,16 @@ export class CommandRouterService {
   }
 
   private async handleReferral(userId: string): Promise<CommandResponse> {
-    const full = await this.getFullProfile.execute(userId);
-    const code = full?.user.referralCode ?? 'N/A';
+    const stats = await this.getReferralInfo.execute(userId);
 
     return this.buildResponse({
       text:
         `🎁 Referal proqramı:\n\n` +
-        `Sənin referal kodun: \`${code}\`\n\n` +
-        `Dostlarını dəvət et — hər ikiniiz bonus kredit qazanacaqsınız!\n\n` +
-        `Link: https://t.me/nigar_ai_bot?start=${code}`,
+        `Sənin referal kodun: \`${stats.referralCode}\`\n\n` +
+        `👥 Dəvət etdiyin: ${stats.totalReferred} nəfər\n` +
+        `✅ Bonus verilən: ${stats.bonusCredited} nəfər\n\n` +
+        `Dostlarını dəvət et — sən 5, onlar 3 kredit qazanacaq!\n\n` +
+        `Link: https://t.me/nigar_ai_bot?start=${stats.referralCode}`,
       inputType: 'text',
     });
   }

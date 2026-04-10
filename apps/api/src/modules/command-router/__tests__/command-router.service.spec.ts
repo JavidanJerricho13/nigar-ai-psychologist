@@ -34,6 +34,17 @@ const mockGetFullProfile = {
 
 const mockUpdateSettings = { execute: jest.fn().mockResolvedValue({}) };
 const mockUpdateProfile = { execute: jest.fn().mockResolvedValue({}) };
+const mockGetBalance = {
+  execute: jest.fn().mockResolvedValue({
+    userId: 'user-1', balance: 50, freeVoiceRemaining: 2, totalPurchased: 100, totalSpent: 50,
+  }),
+};
+const mockGetReferralInfo = {
+  execute: jest.fn().mockResolvedValue({
+    totalReferred: 3, bonusCredited: 2, referralCode: 'REF123',
+  }),
+};
+const mockApplyReferral = { execute: jest.fn().mockResolvedValue({ success: true }) };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
   return new CommandRouterService(
@@ -43,6 +54,9 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.getFullProfile ?? mockGetFullProfile as any,
     overrides?.updateSettings ?? mockUpdateSettings as any,
     overrides?.updateProfile ?? mockUpdateProfile as any,
+    overrides?.getBalance ?? mockGetBalance as any,
+    overrides?.getReferralInfo ?? mockGetReferralInfo as any,
+    overrides?.applyReferral ?? mockApplyReferral as any,
   );
 }
 

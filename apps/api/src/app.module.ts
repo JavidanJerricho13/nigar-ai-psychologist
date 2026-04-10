@@ -9,6 +9,8 @@ import { UserModule } from './modules/user/user.module';
 import { CommandRouterModule } from './modules/command-router/command-router.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { AudioModule } from './modules/audio/audio.module';
+import { BillingModule } from './modules/billing/billing.module';
+import { ReferralModule } from './modules/referral/referral.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -26,6 +28,8 @@ import { HealthController } from './health.controller';
     CommandRouterModule,
     ChatModule,
     AudioModule,
+    BillingModule,
+    ReferralModule,
   ],
   controllers: [HealthController],
 })
