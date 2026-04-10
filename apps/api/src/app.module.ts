@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { configuration, validationSchema } from './config/configuration';
 import { RedisModule } from './shared/redis/redis.module';
 import { PrismaModule } from './shared/prisma/prisma.module';
+import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -14,6 +15,7 @@ import { HealthController } from './health.controller';
     }),
     RedisModule,
     PrismaModule,
+    OnboardingModule,
   ],
   controllers: [HealthController],
 })
