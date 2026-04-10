@@ -6,6 +6,7 @@ import { PrismaModule } from './shared/prisma/prisma.module';
 import { EncryptionModule } from './common/encryption/encryption.module';
 import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { UserModule } from './modules/user/user.module';
+import { CommandRouterModule } from './modules/command-router/command-router.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -20,6 +21,7 @@ import { HealthController } from './health.controller';
     EncryptionModule,
     OnboardingModule,
     UserModule,
+    CommandRouterModule,
   ],
   controllers: [HealthController],
 })
