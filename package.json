@@ -12,7 +12,11 @@
       "@prisma/engines",
       "@sentry/cli",
       "prisma"
-    ]
+    ],
+    "overrides": {
+      "@tiptap/core": "2.11.5",
+      "@tiptap/pm": "2.11.5"
+    }
   },
   "engines": {
     "node": ">=20.0.0"
