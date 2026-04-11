@@ -56,7 +56,11 @@ const mockSynthesizeSpeech = {
 };
 const mockTransactionHistory = { execute: jest.fn().mockResolvedValue([]) };
 const mockStripeAdapter = { isConfigured: false };
-const mockSession = { clearConversationContext: jest.fn() };
+const mockPrisma = {
+  conversation: { count: jest.fn().mockResolvedValue(5), findFirst: jest.fn().mockResolvedValue(null) },
+  message: { count: jest.fn().mockResolvedValue(20) },
+};
+const mockSession = { clearConversationContext: jest.fn(), getConversationContext: jest.fn().mockResolvedValue([]) };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
   return new CommandRouterService(
@@ -73,6 +77,7 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.synthesizeSpeech ?? mockSynthesizeSpeech as any,
     overrides?.transactionHistory ?? mockTransactionHistory as any,
     overrides?.stripeAdapter ?? mockStripeAdapter as any,
+    overrides?.prisma ?? mockPrisma as any,
     overrides?.session ?? mockSession as any,
   );
 }
@@ -180,8 +185,8 @@ describe('CommandRouterService', () => {
         command: '/support',
       });
 
-      // /support has availableDuringOnboarding: true, handler: 'stub:support'
-      expect(result.output.text).toContain('tezliklə');
+      // /support is now a real handler, not a stub
+      expect(result.output.text).toContain('Dəstək');
     });
   });
 
@@ -275,7 +280,7 @@ describe('CommandRouterService', () => {
 
   describe('stub commands', () => {
     it('should return stub response for unimplemented features', async () => {
-      const stubs = ['topics', 'art', 'progress', 'image', 'tales'];
+      const stubs = ['art', 'image', 'tales'];
       const router = createRouter();
 
       for (const cmd of stubs) {

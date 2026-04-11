@@ -39,18 +39,18 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { command: 'gift', handler: 'gift', description: 'Hədiyyə göndər', availableDuringOnboarding: false },
 
   // Content & Features
-  { command: 'topics', handler: 'stub:topics', description: 'Mövzu seç', availableDuringOnboarding: false },
+  { command: 'topics', handler: 'topics', description: 'Mövzu seç', availableDuringOnboarding: false },
   { command: 'image', handler: 'stub:image', description: 'Şəkil generasiya et', availableDuringOnboarding: false },
   { command: 'tales', handler: 'stub:tales', description: 'Nağıllar', availableDuringOnboarding: false },
   { command: 'art', handler: 'stub:art', description: 'Art-terapiya', availableDuringOnboarding: false },
   { command: 'nigar_files', handler: 'stub:nigar_files', description: 'Nigar faylları', availableDuringOnboarding: false },
-  { command: 'progress', handler: 'stub:progress', description: 'İrəliləyiş hesabatı', availableDuringOnboarding: false },
+  { command: 'progress', handler: 'progress', description: 'İrəliləyiş hesabatı', availableDuringOnboarding: false },
   { command: 'clear_chat', handler: 'clear_chat', description: 'Söhbəti təmizlə', availableDuringOnboarding: false },
-  { command: 'memory', handler: 'stub:memory', description: 'Nigarın xatirələri', availableDuringOnboarding: false },
+  { command: 'memory', handler: 'memory', description: 'Nigarın xatirələri', availableDuringOnboarding: false },
 
   // Meta
-  { command: 'support', handler: 'stub:support', description: 'Dəstək', availableDuringOnboarding: true },
-  { command: 'about_company', handler: 'stub:about_company', description: 'Şirkət haqqında', availableDuringOnboarding: true },
+  { command: 'support', handler: 'support', description: 'Dəstək', availableDuringOnboarding: true },
+  { command: 'about_company', handler: 'about_company', description: 'Şirkət haqqında', availableDuringOnboarding: true },
   { command: 'b2b', handler: 'stub:b2b', description: 'B2B əməkdaşlıq', availableDuringOnboarding: true },
   { command: 'other', handler: 'other', description: 'Digər əmrlər', availableDuringOnboarding: true },
 ];

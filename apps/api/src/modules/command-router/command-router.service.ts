@@ -15,6 +15,7 @@ import { SendMessageUseCase } from '../chat/domain/use-cases/send-message.use-ca
 import { SynthesizeSpeechUseCase } from '../audio/domain/use-cases/synthesize-speech.use-case';
 import { GetTransactionHistoryUseCase } from '../billing/domain/use-cases/get-transaction-history.use-case';
 import { StripeAdapter, CREDIT_PACKAGES } from '../billing/infrastructure/adapters/stripe.adapter';
+import { PrismaService } from '../../shared/prisma/prisma.service';
 import { SessionService } from '../../shared/redis/session.service';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
@@ -37,6 +38,7 @@ export class CommandRouterService {
     private readonly synthesizeSpeech: SynthesizeSpeechUseCase,
     private readonly getTransactionHistory: GetTransactionHistoryUseCase,
     private readonly stripeAdapter: StripeAdapter,
+    private readonly prisma: PrismaService,
     private readonly session: SessionService,
   ) {}
 
@@ -104,6 +106,11 @@ export class CommandRouterService {
         // Rudeness toggle callback: "toggle:rudeness:on" / "toggle:rudeness:off"
         if (payload.startsWith('toggle:rudeness:')) {
           return this.handleRudenessToggle(userId, payload.slice(16));
+        }
+
+        // Topic selection callback: "topic:stress"
+        if (payload.startsWith('topic:')) {
+          return this.handleTopicSelected(userId, payload.slice(6));
         }
 
         // Payment package callback: "pay:pack_10"
@@ -193,6 +200,21 @@ export class CommandRouterService {
 
       case 'gift':
         return this.handleGift(userId, request);
+
+      case 'topics':
+        return this.handleTopics();
+
+      case 'progress':
+        return this.handleProgress(userId);
+
+      case 'memory':
+        return this.handleMemory(userId);
+
+      case 'support':
+        return this.handleSupport();
+
+      case 'about_company':
+        return this.handleAboutCompany();
 
       default:
         if (def.handler.startsWith('stub:')) {
@@ -706,6 +728,155 @@ export class CommandRouterService {
       text:
         `🎁 Hədiyyə funksiyası tezliklə tam aktivləşəcək.\n\n` +
         `Hazırda: /referral ilə dostlarınıza kredit qazandıra bilərsiniz.`,
+      inputType: 'text',
+    });
+  }
+
+  private handleTopics(): CommandResponse {
+    return this.buildResponse({
+      text:
+        `📋 Mövzu seçin — söhbətimizi istiqamətləndirək:\n\n` +
+        `Hansı mövzu sizi narahat edir?`,
+      options: [
+        { id: 't1', label: '🌪 Stress və narahatlıq', value: 'topic:stress' },
+        { id: 't2', label: '❤️ Münasibətlər', value: 'topic:relationships' },
+        { id: 't3', label: '💼 Karyera və iş', value: 'topic:career' },
+        { id: 't4', label: '🎯 Özünə inam', value: 'topic:self_esteem' },
+        { id: 't5', label: '😴 Yuxu və yorğunluq', value: 'topic:sleep' },
+        { id: 't6', label: '👨‍👩‍👧 Ailə', value: 'topic:family' },
+        { id: 't7', label: '💔 Ayrılıq / itki', value: 'topic:loss' },
+        { id: 't8', label: '🧠 Özünü tanıma', value: 'topic:self_discovery' },
+      ],
+      inputType: 'button',
+    });
+  }
+
+  private async handleTopicSelected(
+    userId: string,
+    topicKey: string,
+  ): Promise<CommandResponse> {
+    const topicLabels: Record<string, string> = {
+      stress: '🌪 Stress və narahatlıq',
+      relationships: '❤️ Münasibətlər',
+      career: '💼 Karyera və iş',
+      self_esteem: '🎯 Özünə inam',
+      sleep: '😴 Yuxu və yorğunluq',
+      family: '👨‍👩‍👧 Ailə münasibətləri',
+      loss: '💔 Ayrılıq və itki',
+      self_discovery: '🧠 Özünü tanıma',
+    };
+
+    const topicStarters: Record<string, string> = {
+      stress: 'Stresslə bağlı nə baş verir? Nə sizi narahat edir?',
+      relationships: 'Münasibətlərinizdə nə baş verir? Mənə danışın.',
+      career: 'İş və karyeranızla bağlı nə düşünürsünüz?',
+      self_esteem: 'Özünüzə inamınızla bağlı nə hiss edirsiniz?',
+      sleep: 'Yuxu probleminiz var? Nə baş verir?',
+      family: 'Ailə münasibətlərinizdə nə narahat edir?',
+      loss: 'İtki və ya ayrılıq yaşayırsınız? Mən buradayam.',
+      self_discovery: 'Özünüzü daha yaxşı tanımaq istəyirsiniz? Gəlin başlayaq.',
+    };
+
+    const label = topicLabels[topicKey] ?? topicKey;
+    const starter = topicStarters[topicKey] ?? 'Bu mövzu haqqında danışaq. Nə hiss edirsiniz?';
+
+    this.logger.log(`Topic selected: ${topicKey} for user ${userId.slice(0, 8)}`);
+
+    return this.buildResponse({
+      text: `${label}\n\n${starter}\n\n💬 Mənə yazın — dinləyirəm.`,
+      inputType: 'text',
+    });
+  }
+
+  private async handleProgress(userId: string): Promise<CommandResponse> {
+    const [conversations, messages, balance] = await Promise.all([
+      this.prisma.conversation.count({ where: { userId } }),
+      this.prisma.message.count({
+        where: { conversation: { userId } },
+      }),
+      this.getBalance.execute(userId),
+    ]);
+
+    const voiceUsed = 3 - balance.freeVoiceRemaining;
+
+    return this.buildResponse({
+      text:
+        `📊 Sənin irəliləyişin:\n\n` +
+        `💬 Söhbətlər: ${conversations}\n` +
+        `✉️ Mesajlar: ${messages}\n` +
+        `🎙 Səsli cavablar istifadə olunub: ${voiceUsed}\n` +
+        `💰 Cari balans: ${balance.balance} kredit\n` +
+        `🎁 Pulsuz səs qalıb: ${balance.freeVoiceRemaining}\n\n` +
+        `/balance — Ətraflı balans\n` +
+        `/credits — Əməliyyat tarixçəsi`,
+      inputType: 'text',
+    });
+  }
+
+  private async handleMemory(userId: string): Promise<CommandResponse> {
+    // Find the most recent conversation for this user
+    const lastConversation = await this.prisma.conversation.findFirst({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (!lastConversation) {
+      return this.buildResponse({
+        text: '🧠 Hələ heç bir söhbət konteksti yoxdur.\n\nMənə yazın — yeni söhbətə başlayaq!',
+        inputType: 'text',
+      });
+    }
+
+    const context = await this.session.getConversationContext(lastConversation.id, 10);
+
+    if (context.length === 0) {
+      return this.buildResponse({
+        text: '🧠 Söhbət konteksti boşdur (vaxt keçib və ya təmizlənib).\n\nYeni mövzuya başlayaq!',
+        inputType: 'text',
+      });
+    }
+
+    const lines = context.map((msg) => {
+      const icon = msg.role === 'user' ? '👤' : '🤖';
+      const text = msg.content.length > 100 ? msg.content.slice(0, 100) + '...' : msg.content;
+      return `${icon} ${text}`;
+    });
+
+    return this.buildResponse({
+      text:
+        `🧠 Nigarın xatirələri (son ${context.length} mesaj):\n\n` +
+        lines.join('\n\n') +
+        `\n\n/clear_chat — Konteksti təmizlə`,
+      inputType: 'text',
+    });
+  }
+
+  private handleSupport(): CommandResponse {
+    return this.buildResponse({
+      text:
+        `📞 Dəstək:\n\n` +
+        `Texniki problem və ya təklif üçün:\n\n` +
+        `📧 Email: support@nigar.ai\n` +
+        `💬 Telegram: @NigarSupport_Bot\n\n` +
+        `Psixoloji böhran zamanı:\n` +
+        `🆘 Böhran xətti: 860-510-510\n` +
+        `📞 Uşaq xətti: 116-111`,
+      inputType: 'text',
+    });
+  }
+
+  private handleAboutCompany(): CommandResponse {
+    return this.buildResponse({
+      text:
+        `🏢 Nigar AI haqqında:\n\n` +
+        `Nigar — Azərbaycan bazarı üçün yaradılmış ilk AI psixoloqudur.\n\n` +
+        `🧠 Missiyamız: Hər kəsə 24/7 keyfiyyətli psixoloji dəstək təmin etmək.\n\n` +
+        `🔬 Texnologiya: OpenAI, Anthropic və Google-un ən müasir neyroşəbəkələri əsasında.\n\n` +
+        `🔒 Məxfilik: Bütün söhbətlər şifrələnir (AES-256-GCM). Məlumatlar üçüncü şəxslərə ötürülmür.\n\n` +
+        `📊 60,000+ istifadəçi artıq Nigar ilə söhbət edir.\n\n` +
+        `/b2b — Biznes əməkdaşlıq\n` +
+        `/support — Dəstək`,
       inputType: 'text',
     });
   }

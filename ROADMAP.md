@@ -74,7 +74,7 @@
   - Query `Transaction` table, display last 10 transactions
 - [ ] **Implement `/gift` command** — transfer credits to another user
   - Atomic deduct from sender + add to receiver
-  
+
 ---
 
 ## Priority 5: Essential Commands (user-facing features)
@@ -93,7 +93,7 @@
   - Replace stub with actual company details
 
 ---
-
+Не Слеоао еше
 ## Priority 6: Onboarding Polish
 
 - [ ] **Create/upload onboarding image assets**
