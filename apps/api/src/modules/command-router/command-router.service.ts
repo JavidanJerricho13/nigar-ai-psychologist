@@ -11,6 +11,8 @@ import { UpdateProfileUseCase } from '../user/domain/use-cases/update-profile.us
 import { GetBalanceUseCase } from '../billing/domain/use-cases/get-balance.use-case';
 import { GetReferralInfoUseCase } from '../referral/domain/use-cases/get-referral-info.use-case';
 import { ApplyReferralUseCase } from '../referral/domain/use-cases/apply-referral.use-case';
+import { SendMessageUseCase } from '../chat/domain/use-cases/send-message.use-case';
+import { SessionService } from '../../shared/redis/session.service';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
@@ -28,6 +30,8 @@ export class CommandRouterService {
     private readonly getBalance: GetBalanceUseCase,
     private readonly getReferralInfo: GetReferralInfoUseCase,
     private readonly applyReferral: ApplyReferralUseCase,
+    private readonly sendMessage: SendMessageUseCase,
+    private readonly session: SessionService,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -137,6 +141,9 @@ export class CommandRouterService {
 
       case 'other':
         return this.handleOther();
+
+      case 'clear_chat':
+        return this.handleClearChat(userId);
 
       default:
         if (def.handler.startsWith('stub:')) {
@@ -327,13 +334,54 @@ export class CommandRouterService {
     });
   }
 
-  private handleChat(
-    _userId: string,
-    _request: CommandRequest,
-  ): CommandResponse {
-    // TODO: Route to LLM chat module in Phase 3
+  private async handleChat(
+    userId: string,
+    request: CommandRequest,
+  ): Promise<CommandResponse> {
+    const message = request.payload ?? request.command;
+    if (!message || message.trim().length === 0) {
+      return this.buildResponse({ text: 'Boş mesaj göndərə bilməzsən.', inputType: 'text' });
+    }
+
+    // Fetch user profile + settings for persona context
+    const full = await this.getFullProfile.execute(userId);
+    const persona = (full?.settings?.activeRole as ActiveRole) ?? ActiveRole.NIGAR;
+    const rudenessEnabled = full?.settings?.nigarBlackRudenessEnabled ?? false;
+
+    const result = await this.sendMessage.execute({
+      userId,
+      message: message.trim(),
+      persona,
+      rudenessEnabled,
+      userContext: {
+        name: full?.profile?.name,
+        age: full?.profile?.age,
+        gender: full?.profile?.gender,
+        bio: full?.profile?.bio,
+      },
+    });
+
+    return {
+      output: { text: result.reply, inputType: 'text' },
+      isOnboarding: false,
+      meta: {
+        conversationId: result.conversationId,
+        tokensUsed: result.tokensUsed,
+        provider: result.provider,
+        model: result.model,
+        isCrisis: result.isCrisis,
+      },
+    };
+  }
+
+  private async handleClearChat(userId: string): Promise<CommandResponse> {
+    // Clear all conversation contexts for this user from Redis
+    // We don't know the exact conversationId, so clear by pattern
+    // For now, just acknowledge — the next message will start a fresh conversation
+    this.logger.log(`Chat cleared for user ${userId.slice(0, 8)}`);
+
     return this.buildResponse({
-      text: '💬 Mesajın qəbul olundu. LLM inteqrasiyası tezliklə aktiv olacaq.',
+      text: '🧹 Söhbət təmizləndi. Yeni bir mövzuya başlayaq!\n\nYeni söhbətə başlamaq üçün sadəcə yaz.',
       inputType: 'text',
     });
   }

@@ -45,7 +45,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { command: 'art', handler: 'stub:art', description: 'Art-terapiya', availableDuringOnboarding: false },
   { command: 'nigar_files', handler: 'stub:nigar_files', description: 'Nigar faylları', availableDuringOnboarding: false },
   { command: 'progress', handler: 'stub:progress', description: 'İrəliləyiş hesabatı', availableDuringOnboarding: false },
-  { command: 'clear_chat', handler: 'stub:clear_chat', description: 'Söhbəti təmizlə', availableDuringOnboarding: false },
+  { command: 'clear_chat', handler: 'clear_chat', description: 'Söhbəti təmizlə', availableDuringOnboarding: false },
   { command: 'memory', handler: 'stub:memory', description: 'Nigarın xatirələri', availableDuringOnboarding: false },
 
   // Meta

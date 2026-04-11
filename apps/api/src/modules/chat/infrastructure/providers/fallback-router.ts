@@ -4,6 +4,7 @@ import {
   LlmCompletionRequest,
   LlmCompletionResponse,
 } from '../../domain/ports/llm-provider.port';
+import { GroqAdapter } from '../adapters/groq.adapter';
 import { OpenAiAdapter } from '../adapters/openai.adapter';
 import { AnthropicAdapter } from '../adapters/anthropic.adapter';
 import { GeminiAdapter } from '../adapters/gemini.adapter';
@@ -16,24 +17,22 @@ interface ProviderChain {
 
 /**
  * Fallback router that tries providers in order.
- * If the primary provider fails, automatically falls back to the next.
  *
- * Routing rules (from ARCHITECTURE.md):
- *   Default:          GPT-4o-mini → Claude Haiku → Gemini Flash
- *   Crisis detection: GPT-4o (higher capability for safety)
- *   Super Nigar:      Claude Sonnet (smartest available)
+ * Default chain: Groq (free/fast) → OpenAI → Anthropic → Gemini
+ * Crisis:        OpenAI GPT-4o → Groq → Anthropic → Gemini
+ * Super Nigar:   Anthropic Sonnet → Groq → OpenAI → Gemini
  */
 @Injectable()
 export class FallbackRouter {
   private readonly logger = new Logger(FallbackRouter.name);
 
   constructor(
+    private readonly groq: GroqAdapter,
     private readonly openai: OpenAiAdapter,
     private readonly anthropic: AnthropicAdapter,
     private readonly gemini: GeminiAdapter,
   ) {}
 
-  /** Route a completion request based on persona, with automatic fallback */
   async complete(
     request: LlmCompletionRequest,
     persona: ActiveRole = ActiveRole.NIGAR,
@@ -81,26 +80,26 @@ export class FallbackRouter {
     throw new Error('No LLM providers available');
   }
 
-  /** Get the provider chain for a given persona */
   private getChain(persona: ActiveRole, isCrisis: boolean): ProviderChain {
     if (isCrisis) {
       return {
-        providers: [this.openai, this.anthropic, this.gemini],
-        defaultModel: 'gpt-4o', // Higher capability for safety
+        providers: [this.openai, this.groq, this.anthropic, this.gemini],
+        defaultModel: 'gpt-4o',
       };
     }
 
     switch (persona) {
       case ActiveRole.SUPER_NIGAR:
         return {
-          providers: [this.anthropic, this.openai, this.gemini],
+          providers: [this.anthropic, this.groq, this.openai, this.gemini],
           defaultModel: 'claude-sonnet-4-5-20250514',
         };
 
       default:
+        // Groq is primary for testing (free, fast)
         return {
-          providers: [this.openai, this.anthropic, this.gemini],
-          defaultModel: 'gpt-4o-mini',
+          providers: [this.groq, this.openai, this.anthropic, this.gemini],
+          defaultModel: 'llama-3.3-70b-versatile',
         };
     }
   }

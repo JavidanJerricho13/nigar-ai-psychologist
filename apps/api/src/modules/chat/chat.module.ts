@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { OpenAiAdapter } from './infrastructure/adapters/openai.adapter';
 import { AnthropicAdapter } from './infrastructure/adapters/anthropic.adapter';
 import { GeminiAdapter } from './infrastructure/adapters/gemini.adapter';
+import { GroqAdapter } from './infrastructure/adapters/groq.adapter';
 import { FallbackRouter } from './infrastructure/providers/fallback-router';
 import { PromptBuilderService } from './infrastructure/prompt/prompt-builder.service';
 import { PiiStripperService } from './infrastructure/pii/pii-stripper.service';
@@ -11,6 +12,7 @@ import { SendMessageUseCase } from './domain/use-cases/send-message.use-case';
 @Module({
   providers: [
     // LLM Adapters
+    GroqAdapter,
     OpenAiAdapter,
     AnthropicAdapter,
     GeminiAdapter,

@@ -26,6 +26,7 @@ function mockProvider(
 }
 
 describe('FallbackRouter', () => {
+  let groq: jest.Mocked<LlmProviderPort>;
   let openai: jest.Mocked<LlmProviderPort>;
   let anthropic: jest.Mocked<LlmProviderPort>;
   let gemini: jest.Mocked<LlmProviderPort>;
@@ -36,57 +37,57 @@ describe('FallbackRouter', () => {
   };
 
   beforeEach(() => {
+    groq = mockProvider('groq');
     openai = mockProvider('openai');
     anthropic = mockProvider('anthropic');
     gemini = mockProvider('gemini');
-    router = new FallbackRouter(openai as any, anthropic as any, gemini as any);
+    router = new FallbackRouter(groq as any, openai as any, anthropic as any, gemini as any);
   });
 
   describe('default routing (Nigar persona)', () => {
-    it('should use OpenAI as primary with gpt-4o-mini', async () => {
+    it('should use Groq as primary with llama-3.3-70b-versatile', async () => {
       const result = await router.complete(baseRequest, ActiveRole.NIGAR);
 
-      expect(openai.complete).toHaveBeenCalledTimes(1);
-      expect(openai.complete).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-4o-mini' }),
+      expect(groq.complete).toHaveBeenCalledTimes(1);
+      expect(groq.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'llama-3.3-70b-versatile' }),
       );
-      expect(result.provider).toBe('openai');
-      expect(anthropic.complete).not.toHaveBeenCalled();
-      expect(gemini.complete).not.toHaveBeenCalled();
+      expect(result.provider).toBe('groq');
+      expect(openai.complete).not.toHaveBeenCalled();
     });
 
     it('should use default persona when none specified', async () => {
       await router.complete(baseRequest);
-      expect(openai.complete).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'gpt-4o-mini' }),
+      expect(groq.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'llama-3.3-70b-versatile' }),
       );
     });
   });
 
   describe('fallback behavior', () => {
-    it('should fallback to Anthropic when OpenAI fails', async () => {
-      openai.complete.mockRejectedValue(new Error('OpenAI 500'));
+    it('should fallback to OpenAI when Groq fails', async () => {
+      groq.complete.mockRejectedValue(new Error('Groq 500'));
 
       const result = await router.complete(baseRequest);
 
+      expect(groq.complete).toHaveBeenCalledTimes(1);
       expect(openai.complete).toHaveBeenCalledTimes(1);
-      expect(anthropic.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('anthropic');
+      expect(result.provider).toBe('openai');
     });
 
-    it('should fallback to Gemini when OpenAI and Anthropic both fail', async () => {
+    it('should fallback through full chain when multiple fail', async () => {
+      groq.complete.mockRejectedValue(new Error('Groq down'));
       openai.complete.mockRejectedValue(new Error('OpenAI down'));
       anthropic.complete.mockRejectedValue(new Error('Anthropic down'));
 
       const result = await router.complete(baseRequest);
 
-      expect(openai.complete).toHaveBeenCalledTimes(1);
-      expect(anthropic.complete).toHaveBeenCalledTimes(1);
       expect(gemini.complete).toHaveBeenCalledTimes(1);
       expect(result.provider).toBe('gemini');
     });
 
     it('should throw when ALL providers fail', async () => {
+      groq.complete.mockRejectedValue(new Error('Groq down'));
       openai.complete.mockRejectedValue(new Error('OpenAI down'));
       anthropic.complete.mockRejectedValue(new Error('Anthropic down'));
       gemini.complete.mockRejectedValue(new Error('Gemini down'));
@@ -97,16 +98,17 @@ describe('FallbackRouter', () => {
     });
 
     it('should skip unavailable providers', async () => {
-      openai.isAvailable.mockResolvedValue(false);
+      groq.isAvailable.mockResolvedValue(false);
 
       const result = await router.complete(baseRequest);
 
-      expect(openai.complete).not.toHaveBeenCalled();
-      expect(anthropic.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('anthropic');
+      expect(groq.complete).not.toHaveBeenCalled();
+      expect(openai.complete).toHaveBeenCalledTimes(1);
+      expect(result.provider).toBe('openai');
     });
 
     it('should throw when no providers are available', async () => {
+      groq.isAvailable.mockResolvedValue(false);
       openai.isAvailable.mockResolvedValue(false);
       anthropic.isAvailable.mockResolvedValue(false);
       gemini.isAvailable.mockResolvedValue(false);
@@ -129,14 +131,14 @@ describe('FallbackRouter', () => {
       expect(result.provider).toBe('anthropic');
     });
 
-    it('should fallback to OpenAI when Anthropic fails for Super Nigar', async () => {
+    it('should fallback to Groq when Anthropic fails for Super Nigar', async () => {
       anthropic.complete.mockRejectedValue(new Error('Anthropic 429'));
 
       const result = await router.complete(baseRequest, ActiveRole.SUPER_NIGAR);
 
       expect(anthropic.complete).toHaveBeenCalledTimes(1);
-      expect(openai.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('openai');
+      expect(groq.complete).toHaveBeenCalledTimes(1);
+      expect(result.provider).toBe('groq');
     });
   });
 
@@ -155,8 +157,9 @@ describe('FallbackRouter', () => {
 
       const result = await router.complete(baseRequest, ActiveRole.NIGAR, true);
 
-      expect(anthropic.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('anthropic');
+      // Crisis chain: OpenAI → Groq → Anthropic → Gemini
+      expect(groq.complete).toHaveBeenCalledTimes(1);
+      expect(result.provider).toBe('groq');
     });
   });
 
@@ -170,12 +173,12 @@ describe('FallbackRouter', () => {
     ];
 
     it.each(nonSuperPersonas)(
-      'should use OpenAI as primary for %s',
+      'should use Groq as primary for %s',
       async (persona) => {
         await router.complete(baseRequest, persona);
-        expect(openai.complete).toHaveBeenCalledTimes(1);
-        expect(openai.complete).toHaveBeenCalledWith(
-          expect.objectContaining({ model: 'gpt-4o-mini' }),
+        expect(groq.complete).toHaveBeenCalledTimes(1);
+        expect(groq.complete).toHaveBeenCalledWith(
+          expect.objectContaining({ model: 'llama-3.3-70b-versatile' }),
         );
       },
     );

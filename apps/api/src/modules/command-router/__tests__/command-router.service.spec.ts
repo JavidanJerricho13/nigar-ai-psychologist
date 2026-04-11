@@ -45,6 +45,12 @@ const mockGetReferralInfo = {
   }),
 };
 const mockApplyReferral = { execute: jest.fn().mockResolvedValue({ success: true }) };
+const mockSendMessage = {
+  execute: jest.fn().mockResolvedValue({
+    reply: 'AI cavab', conversationId: 'conv-1', tokensUsed: 50, provider: 'groq', model: 'llama-3.3-70b', isCrisis: false,
+  }),
+};
+const mockSession = { clearConversationContext: jest.fn() };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
   return new CommandRouterService(
@@ -57,6 +63,8 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.getBalance ?? mockGetBalance as any,
     overrides?.getReferralInfo ?? mockGetReferralInfo as any,
     overrides?.applyReferral ?? mockApplyReferral as any,
+    overrides?.sendMessage ?? mockSendMessage as any,
+    overrides?.session ?? mockSession as any,
   );
 }
 
@@ -287,7 +295,7 @@ describe('CommandRouterService', () => {
   });
 
   describe('free text when not in onboarding', () => {
-    it('should route to chat handler (placeholder)', async () => {
+    it('should route to SendMessageUseCase for AI chat', async () => {
       const router = createRouter();
       const result = await router.dispatch({
         userId: 'tg-123',
@@ -295,8 +303,10 @@ describe('CommandRouterService', () => {
         command: 'Salam, necəsən?',
       });
 
-      expect(result.output.text).toContain('LLM');
+      expect(mockSendMessage.execute).toHaveBeenCalled();
+      expect(result.output.text).toBe('AI cavab');
       expect(result.isOnboarding).toBe(false);
+      expect(result.meta?.provider).toBe('groq');
     });
   });
 
