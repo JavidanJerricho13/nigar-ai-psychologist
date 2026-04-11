@@ -12,19 +12,27 @@ dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config();
 
 import express from 'express';
-import session from 'express-session';
 import { PrismaClient } from '@nigar/prisma-client';
 
-/* eslint-disable @typescript-eslint/no-var-requires */
-const AdminJS = require('adminjs');
-const AdminJSExpress = require('@adminjs/express');
-const AdminJSPrisma = require('@adminjs/prisma');
-/* eslint-enable */
-
-const { Database, Resource, getModelByName } = AdminJSPrisma;
-AdminJS.registerAdapter({ Database, Resource });
-
+// AdminJS v7 is pure ESM — must use dynamic import() from CommonJS
+let AdminJS: any;
+let AdminJSExpress: any;
+let getModelByName: any;
 const prisma = new PrismaClient();
+
+async function loadAdminJS() {
+  const adminjsModule = await import('adminjs');
+  AdminJS = adminjsModule.default;
+
+  const expressModule = await import('@adminjs/express' as any);
+  AdminJSExpress = expressModule.default ?? expressModule;
+
+  const prismaModule = await import('@adminjs/prisma' as any);
+  const { Database, Resource } = prismaModule;
+  getModelByName = prismaModule.getModelByName;
+
+  AdminJS.registerAdapter({ Database, Resource });
+}
 
 // ===================== RESOURCE CONFIG =====================
 
@@ -88,6 +96,9 @@ function buildResources() {
 // ===================== BOOTSTRAP =====================
 
 async function bootstrap() {
+  // Load ESM modules via dynamic import
+  await loadAdminJS();
+
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@nigar.ai';
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin';
   const sessionSecret = process.env.ENCRYPTION_KEY ?? 'change-this-secret-in-production-32chars!!';
