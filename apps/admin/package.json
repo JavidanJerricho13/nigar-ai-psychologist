@@ -10,6 +10,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@adminjs/bundler": "^3.0.0",
     "@adminjs/express": "^6.1.0",
     "@adminjs/prisma": "^5.0.0",
     "@nigar/prisma-client": "workspace:*",

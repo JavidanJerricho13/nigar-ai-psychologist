@@ -18,7 +18,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import crypto from 'node:crypto';
 import express from 'express';
-import AdminJS, { ComponentLoader } from 'adminjs';
+import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@nigar/prisma-client';
@@ -27,13 +27,6 @@ import { AnalyticsService } from './services/analytics.service.js';
 
 // Register Prisma adapter
 AdminJS.registerAdapter({ Database, Resource });
-
-// Component loader for custom dashboard
-// Path must be absolute — AdminJS resolves relative to CWD, not module location
-const componentLoader = new ComponentLoader();
-// __dirname at runtime = apps/admin/dist/ → need to go to apps/admin/src/components/
-const srcDir = path.resolve(__dirname, '../src');
-const DashboardComponent = componentLoader.add('Dashboard', path.join(srcDir, 'components/Dashboard'));
 
 const prisma = new PrismaClient();
 
@@ -368,10 +361,7 @@ async function bootstrap() {
   const admin = new AdminJS({
     rootPath: '/admin',
     resources: buildResources(),
-    componentLoader,
-    dashboard: {
-      component: DashboardComponent,
-    },
+    // dashboard: custom HTML served at /admin/dashboard
     branding: {
       companyName: 'Nigar AI — Admin',
       logo: false,
@@ -406,11 +396,143 @@ async function bootstrap() {
 
   const app = express();
 
-  // Initialize AdminJS (bundles custom components)
-  await admin.initialize();
+  // Note: AdminJS ComponentLoader bundling is unreliable in v7.
+  // Custom dashboard served as standalone HTML at /admin/dashboard instead.
 
   // JSON parsing for API routes
   app.use(express.json());
+
+  // ===================== STANDALONE DASHBOARD =====================
+  app.get('/admin/dashboard', (_req, res) => {
+    res.send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nigar AI — Dashboard</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f6fa; color: #333; }
+    .header { background: #c0392b; color: white; padding: 16px 32px; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 20px; }
+    .header a { color: white; text-decoration: none; opacity: 0.8; }
+    .container { max-width: 1200px; margin: 24px auto; padding: 0 24px; }
+    .alert { background: #e74c3c; color: white; padding: 12px 20px; border-radius: 8px; margin-bottom: 20px; font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center; }
+    .card .icon { font-size: 28px; margin-bottom: 8px; }
+    .card .value { font-size: 28px; font-weight: 700; color: #2c3e50; }
+    .card .label { font-size: 13px; color: #95a5a6; margin-top: 4px; }
+    .section { background: white; border-radius: 12px; padding: 24px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .section h3 { margin-bottom: 16px; color: #2c3e50; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid #ecf0f1; }
+    th { font-weight: 600; color: #7f8c8d; font-size: 12px; text-transform: uppercase; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge-red { background: #fde8e8; color: #e74c3c; }
+    .badge-green { background: #e8f8e8; color: #27ae60; }
+    .links a { display: inline-block; margin: 4px 8px 4px 0; padding: 6px 12px; background: #ecf0f1; border-radius: 6px; text-decoration: none; color: #2c3e50; font-size: 13px; }
+    .links a:hover { background: #d5dbdb; }
+    .refresh-btn { background: #3498db; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+    .refresh-btn:hover { background: #2980b9; }
+    #loading { text-align: center; padding: 40px; color: #95a5a6; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>📊 Nigar AI Dashboard</h1>
+    <div><a href="/admin">← Admin Panel</a> &nbsp; <button class="refresh-btn" onclick="refresh()">🔄 Refresh</button></div>
+  </div>
+  <div class="container">
+    <div id="alert"></div>
+    <div id="loading">Loading metrics...</div>
+    <div id="content" style="display:none">
+      <div class="grid" id="kpi-cards"></div>
+      <div class="section" id="providers-section"></div>
+      <div class="section" id="personas-section"></div>
+      <div class="section" id="onboarding-section"></div>
+      <div class="section">
+        <h3>📋 API Endpoints</h3>
+        <div class="links">
+          <a href="/admin/api/metrics">/metrics (all)</a>
+          <a href="/admin/api/metrics/kpi">/kpi</a>
+          <a href="/admin/api/metrics/revenue">/revenue</a>
+          <a href="/admin/api/metrics/retention">/retention</a>
+          <a href="/admin/api/metrics/personas">/personas</a>
+          <a href="/admin/api/metrics/onboarding">/onboarding</a>
+          <a href="/admin/api/metrics/providers">/providers</a>
+          <a href="/admin/api/metrics/safety">/safety</a>
+          <a href="/admin/api/metrics/demographics">/demographics</a>
+          <a href="/admin/api/metrics/content">/content</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function card(icon, label, value) {
+      return '<div class="card"><div class="icon">' + icon + '</div><div class="value">' + value + '</div><div class="label">' + label + '</div></div>';
+    }
+    async function load() {
+      try {
+        const [kpi, safety, tokens, personas, onboarding] = await Promise.all([
+          fetch('/admin/api/metrics/kpi').then(r => r.json()),
+          fetch('/admin/api/metrics/safety').then(r => r.json()),
+          fetch('/admin/api/metrics/providers').then(r => r.json()),
+          fetch('/admin/api/metrics/personas').then(r => r.json()),
+          fetch('/admin/api/metrics/onboarding').then(r => r.json()),
+        ]);
+        // Alert
+        if (safety.unhandled > 0) {
+          document.getElementById('alert').innerHTML = '<div class="alert">🆘 ' + safety.unhandled + ' unhandled crisis event(s)!</div>';
+        }
+        // KPI Cards
+        document.getElementById('kpi-cards').innerHTML =
+          card('👥', 'Total Users', kpi.totalUsers) +
+          card('📈', 'DAU', kpi.dau) +
+          card('📊', 'MAU', kpi.mau) +
+          card('🔄', 'Stickiness', kpi.stickiness + '%') +
+          card('💰', 'Revenue', kpi.revenue + ' AZN') +
+          card('💳', 'ARPU', kpi.arpu + ' AZN') +
+          card('✅', 'Onboarding', kpi.onboardingRate + '%') +
+          card('💎', 'Paying', kpi.payingRatio + '%') +
+          card('🆕', 'New Today', kpi.newUsersToday) +
+          card('💬', 'Msgs/Session', kpi.avgMessagesPerSession) +
+          card('🔥', 'Active Convos', safety.activeConversations) +
+          card('🧠', 'Tokens', tokens.totalTokens.toLocaleString());
+        // Providers
+        var provRows = tokens.byProvider.map(function(p) {
+          return '<tr><td><strong>' + p.provider + '</strong></td><td>' + p.tokens.toLocaleString() + '</td><td>' + p.messages + '</td></tr>';
+        }).join('');
+        document.getElementById('providers-section').innerHTML = '<h3>🤖 LLM Providers</h3><table><thead><tr><th>Provider</th><th>Tokens</th><th>Messages</th></tr></thead><tbody>' + provRows + '</tbody></table>';
+        // Personas
+        var roleRows = personas.settingsDistribution.map(function(r) {
+          var convos = personas.conversationUsage.find(function(c) { return c.role === r.role; });
+          return '<tr><td><strong>' + r.role + '</strong></td><td>' + r.count + '</td><td>' + (convos ? convos.count : 0) + '</td></tr>';
+        }).join('');
+        document.getElementById('personas-section').innerHTML = '<h3>🎭 Persona Distribution</h3><table><thead><tr><th>Role</th><th>Users</th><th>Conversations</th></tr></thead><tbody>' + roleRows + '</tbody></table>';
+        // Onboarding
+        var dropRows = onboarding.dropoffs.map(function(d) {
+          return '<tr><td>Step ' + d.step + '</td><td>' + d.stuckUsers + '</td></tr>';
+        }).join('');
+        document.getElementById('onboarding-section').innerHTML = '<h3>📋 Onboarding Funnel</h3><p>Completion: <strong>' + onboarding.completionRate + '%</strong> (' + onboarding.completed + '/' + onboarding.total + ')</p>' + (dropRows ? '<table><thead><tr><th>Step</th><th>Stuck Users</th></tr></thead><tbody>' + dropRows + '</tbody></table>' : '<p>No drop-offs!</p>');
+        // Show
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('content').style.display = 'block';
+      } catch(e) {
+        document.getElementById('loading').innerHTML = '<div class="alert">Error: ' + e.message + '</div>';
+      }
+    }
+    async function refresh() {
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('content').style.display = 'none';
+      await fetch('/admin/api/metrics/refresh', { method: 'POST' });
+      await load();
+    }
+    load();
+  </script>
+</body>
+</html>`);
+  });
 
   // Metrics API endpoints (no AdminJS auth — protected by separate session)
   app.get('/admin/api/metrics', async (_req, res) => {

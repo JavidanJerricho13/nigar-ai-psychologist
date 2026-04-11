@@ -14,6 +14,9 @@ importers:
 
   apps/admin:
     dependencies:
+      '@adminjs/bundler':
+        specifier: ^3.0.0
+        version: 3.0.0(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28))
       '@adminjs/express':
         specifier: ^6.1.0
         version: 6.1.1(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28))(express-formidable@1.2.0)(express-session@1.19.0)(express@4.22.1)(tslib@2.8.1)
@@ -295,6 +298,11 @@ importers:
   packages/tsconfig: {}
 
 packages:
+
+  '@adminjs/bundler@3.0.0':
+    resolution: {integrity: sha512-s8ItuELPQEXDIEI2jc5TB2iA1jGtNOdZrWrweJvIeE20ORE50m1Ws6uS+bLsAuZCGh6dHOxCWOKFZ/wDQg4TKg==}
+    peerDependencies:
+      adminjs: ^7.0.0
 
   '@adminjs/design-system@4.1.1':
     resolution: {integrity: sha512-aUJjoOwXlBgJWckqDcgUDrRCiDnSrtSHnjFIYzfhhm0dFV107ToHNBemvh72/+krXHtMhRuWCkYkKnrJKh1Bjw==}
@@ -5608,6 +5616,10 @@ packages:
     resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
 snapshots:
+
+  '@adminjs/bundler@3.0.0(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28))':
+    dependencies:
+      adminjs: 7.8.17(@types/babel__core@7.20.5)(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28)
 
   '@adminjs/design-system@4.1.1(@babel/core@7.29.0)(@types/react@18.3.28)(prop-types@15.8.1)(react-dom@18.3.1(react@18.3.1))(react-is@18.3.1)(react@18.3.1)':
     dependencies:
