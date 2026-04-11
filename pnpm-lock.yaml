@@ -13,9 +13,6 @@ importers:
       '@adminjs/express':
         specifier: ^6.1.1
         version: 6.1.1(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react@18.3.28))(express-formidable@1.2.0)(express-session@1.19.0)(express@5.2.1)(tslib@2.8.1)
-      '@adminjs/nestjs':
-        specifier: ^7.0.0
-        version: 7.0.0(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18)(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react@18.3.28))(rxjs@7.8.2)
       '@adminjs/prisma':
         specifier: ^5.0.4
         version: 5.0.4(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react@18.3.28))
@@ -55,6 +52,9 @@ importers:
       bullmq:
         specifier: ^5.0.0
         version: 5.73.4
+      dotenv:
+        specifier: ^16.4.0
+        version: 16.6.1
       express-formidable:
         specifier: ^1.2.0
         version: 1.2.0
@@ -260,14 +260,6 @@ packages:
       express-formidable: ^1.2.0
       express-session: '>=1.17.3'
       tslib: ^2.5.0
-
-  '@adminjs/nestjs@7.0.0':
-    resolution: {integrity: sha512-JsQpuUiwPL8MaxU7DafefBkexp4Xkttcq3eEZ+EBtEebEX1OPGSP7MVgS133Td1p3d2l8EU4yDaUPiEFnoKRtg==}
-    peerDependencies:
-      '@nestjs/common': '>=9.0.5'
-      '@nestjs/core': '>=9.0.5'
-      adminjs: ^7.4.0
-      rxjs: ^7.1.0
 
   '@adminjs/prisma@5.0.4':
     resolution: {integrity: sha512-t2ctltIq2t0FZoz0H7J4WWyhLLYXxSRRdSIbcQXdymr3Q2WwLSm3a+cn1wRADRPXfRuXrsTe+3T5KatDYr3/yQ==}
@@ -4647,9 +4639,6 @@ packages:
   redux@4.2.1:
     resolution: {integrity: sha512-LAUYz4lc+Do8/g7aeRa8JkyDErK6ekstQaqWQrNRW//MY1TvCEpMtpTWvlQ+FPbWCx+Xixu/6SHt5N0HR+SB4w==}
 
-  reflect-metadata@0.1.14:
-    resolution: {integrity: sha512-ZhYeb6nRaXCfhnndflDK8qI6ZQ/YcWZCISRAWICW9XYqMUwjZM9Z0DveWX/ABN01oxSHwVxKQmxeYZSsm0jh5A==}
-
   reflect-metadata@0.2.2:
     resolution: {integrity: sha512-urBwgfrvVP/eAyXx4hluJivBKzuEbSQs9rKWCrCkbSxNv8mxPcUZKeuoF3Uy4mJl3Lwprp6yy5/39VWigZ4K6Q==}
 
@@ -5393,15 +5382,6 @@ snapshots:
       express-formidable: 1.2.0
       express-session: 1.19.0
       tslib: 2.8.1
-
-  '@adminjs/nestjs@7.0.0(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/core@11.1.18)(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react@18.3.28))(rxjs@7.8.2)':
-    dependencies:
-      '@nestjs/common': 11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@nestjs/core': 11.1.18(@nestjs/common@11.1.18(reflect-metadata@0.2.2)(rxjs@7.8.2))(@nestjs/platform-express@11.1.18)(reflect-metadata@0.2.2)(rxjs@7.8.2)
-      '@types/express-session': 1.18.2
-      adminjs: 7.8.17(@types/babel__core@7.20.5)(@types/react@18.3.28)
-      reflect-metadata: 0.1.14
-      rxjs: 7.8.2
 
   '@adminjs/prisma@5.0.4(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react@18.3.28))':
     dependencies:
@@ -10527,8 +10507,6 @@ snapshots:
   redux@4.2.1:
     dependencies:
       '@babel/runtime': 7.29.2
-
-  reflect-metadata@0.1.14: {}
 
   reflect-metadata@0.2.2: {}
 
