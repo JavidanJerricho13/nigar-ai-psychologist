@@ -33,10 +33,10 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
 
   // Billing & Social
   { command: 'balance', handler: 'balance', description: 'Balans', availableDuringOnboarding: false },
-  { command: 'pay', handler: 'stub:pay', description: 'Ödəniş et', availableDuringOnboarding: false },
-  { command: 'credits', handler: 'stub:credits', description: 'Kredit tarixçəsi', availableDuringOnboarding: false },
+  { command: 'pay', handler: 'pay', description: 'Ödəniş et', availableDuringOnboarding: false },
+  { command: 'credits', handler: 'credits', description: 'Kredit tarixçəsi', availableDuringOnboarding: false },
   { command: 'referral', handler: 'referral', description: 'Referal proqramı', availableDuringOnboarding: false },
-  { command: 'gift', handler: 'stub:gift', description: 'Hədiyyə göndər', availableDuringOnboarding: false },
+  { command: 'gift', handler: 'gift', description: 'Hədiyyə göndər', availableDuringOnboarding: false },
 
   // Content & Features
   { command: 'topics', handler: 'stub:topics', description: 'Mövzu seç', availableDuringOnboarding: false },

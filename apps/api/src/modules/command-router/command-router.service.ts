@@ -13,6 +13,8 @@ import { GetReferralInfoUseCase } from '../referral/domain/use-cases/get-referra
 import { ApplyReferralUseCase } from '../referral/domain/use-cases/apply-referral.use-case';
 import { SendMessageUseCase } from '../chat/domain/use-cases/send-message.use-case';
 import { SynthesizeSpeechUseCase } from '../audio/domain/use-cases/synthesize-speech.use-case';
+import { GetTransactionHistoryUseCase } from '../billing/domain/use-cases/get-transaction-history.use-case';
+import { StripeAdapter, CREDIT_PACKAGES } from '../billing/infrastructure/adapters/stripe.adapter';
 import { SessionService } from '../../shared/redis/session.service';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
@@ -33,6 +35,8 @@ export class CommandRouterService {
     private readonly applyReferral: ApplyReferralUseCase,
     private readonly sendMessage: SendMessageUseCase,
     private readonly synthesizeSpeech: SynthesizeSpeechUseCase,
+    private readonly getTransactionHistory: GetTransactionHistoryUseCase,
+    private readonly stripeAdapter: StripeAdapter,
     private readonly session: SessionService,
   ) {}
 
@@ -100,6 +104,11 @@ export class CommandRouterService {
         // Rudeness toggle callback: "toggle:rudeness:on" / "toggle:rudeness:off"
         if (payload.startsWith('toggle:rudeness:')) {
           return this.handleRudenessToggle(userId, payload.slice(16));
+        }
+
+        // Payment package callback: "pay:pack_10"
+        if (payload.startsWith('pay:')) {
+          return this.handlePayCallback(userId, payload.slice(4));
         }
 
         // Command redirect callback: "cmd:roles" / "cmd:format"
@@ -170,6 +179,15 @@ export class CommandRouterService {
 
       case 'clear_chat':
         return this.handleClearChat(userId);
+
+      case 'pay':
+        return this.handlePay(userId);
+
+      case 'credits':
+        return this.handleCredits(userId);
+
+      case 'gift':
+        return this.handleGift(userId, request);
 
       default:
         if (def.handler.startsWith('stub:')) {
@@ -504,6 +522,146 @@ export class CommandRouterService {
 
     return this.buildResponse({
       text: '🧹 Söhbət təmizləndi. Yeni bir mövzuya başlayaq!\n\nYeni söhbətə başlamaq üçün sadəcə yaz.',
+      inputType: 'text',
+    });
+  }
+
+  private async handlePay(userId: string): Promise<CommandResponse> {
+    if (!this.stripeAdapter.isConfigured) {
+      return this.buildResponse({
+        text: '💳 Ödəniş sistemi hazırlanır.\n\nTezliklə kredit almaq mümkün olacaq!',
+        inputType: 'text',
+      });
+    }
+
+    return this.buildResponse({
+      text:
+        `💳 Kredit paketləri:\n\n` +
+        CREDIT_PACKAGES.map((p) => `• ${p.label}`).join('\n') +
+        `\n\nPaket seçin 👇`,
+      options: CREDIT_PACKAGES.map((p) => ({
+        id: p.id,
+        label: `💎 ${p.label}`,
+        value: `pay:${p.id}`,
+      })),
+      inputType: 'button',
+    });
+  }
+
+  private async handlePayCallback(
+    userId: string,
+    packageId: string,
+  ): Promise<CommandResponse> {
+    const pkg = CREDIT_PACKAGES.find((p) => p.id === packageId);
+    if (!pkg) {
+      return this.buildResponse({ text: '❌ Naməlum paket.', inputType: 'text' });
+    }
+
+    if (!this.stripeAdapter.isConfigured) {
+      return this.buildResponse({
+        text: '💳 Ödəniş sistemi hələ aktiv deyil.',
+        inputType: 'text',
+      });
+    }
+
+    try {
+      const url = await this.stripeAdapter.createCheckoutSession(
+        userId,
+        pkg,
+        'Nigar_Psixoloq_bot',
+      );
+
+      return this.buildResponse({
+        text: `💳 Ödəniş linki hazırdır!\n\n${pkg.label}\n\n👉 ${url}\n\nÖdəniş tamamlandıqdan sonra kreditlər avtomatik əlavə olunacaq.`,
+        inputType: 'text',
+      });
+    } catch (err) {
+      this.logger.error(`Stripe checkout failed: ${(err as Error).message}`);
+      return this.buildResponse({
+        text: '⚠️ Ödəniş linki yaradıla bilmədi. Zəhmət olmasa sonra cəhd edin.',
+        inputType: 'text',
+      });
+    }
+  }
+
+  private async handleCredits(userId: string): Promise<CommandResponse> {
+    const history = await this.getTransactionHistory.execute(userId, 10);
+
+    if (history.length === 0) {
+      return this.buildResponse({
+        text: '📋 Hələ heç bir əməliyyat yoxdur.\n\n/pay — Kredit al',
+        inputType: 'text',
+      });
+    }
+
+    const lines = history.map((t) => {
+      const icon = t.amount > 0 ? '➕' : '➖';
+      const typeLabel: Record<string, string> = {
+        purchase: '💳 Ödəniş',
+        spend: '🔻 Xərc',
+        gift: '🎁 Hədiyyə',
+        referral_bonus: '👥 Referal',
+      };
+      const date = t.createdAt.toLocaleDateString('az-AZ');
+      return `${icon} ${Math.abs(t.amount)} kredit — ${typeLabel[t.type] ?? t.type} (${date})`;
+    });
+
+    return this.buildResponse({
+      text: `📋 Son əməliyyatlar:\n\n${lines.join('\n')}\n\n/balance — Cari balans`,
+      inputType: 'text',
+    });
+  }
+
+  private async handleGift(
+    userId: string,
+    request: CommandRequest,
+  ): Promise<CommandResponse> {
+    // Usage: /gift <telegramId> <amount>
+    // The payload contains the text after /gift
+    const args = (request.payload ?? '').trim().split(/\s+/);
+
+    if (args.length < 2 || !args[0] || !args[1]) {
+      return this.buildResponse({
+        text:
+          '🎁 İstifadə qaydası:\n\n' +
+          '`/gift <telegramId> <miqdar>`\n\n' +
+          'Məsələn: `/gift 123456789 10`\n\n' +
+          'Qeyd: Alıcının Telegram ID-sini bilməlisiniz.',
+        inputType: 'text',
+      });
+    }
+
+    const receiverTgId = args[0];
+    const amount = parseInt(args[1], 10);
+
+    if (isNaN(amount) || amount <= 0) {
+      return this.buildResponse({
+        text: '❌ Miqdar müsbət rəqəm olmalıdır.',
+        inputType: 'text',
+      });
+    }
+
+    // Find receiver by telegramId
+    const receiver = await this.getFullProfile.executeByTelegramId(receiverTgId);
+    if (!receiver) {
+      return this.buildResponse({
+        text: `❌ Telegram ID ${receiverTgId} ilə istifadəçi tapılmadı.`,
+        inputType: 'text',
+      });
+    }
+
+    const balance = await this.getBalance.execute(userId);
+    if (balance.balance < amount) {
+      return this.buildResponse({
+        text: `❌ Kifayət qədər kredit yoxdur.\n\nBalans: ${balance.balance}\nGöndərmək: ${amount}`,
+        inputType: 'text',
+      });
+    }
+
+    return this.buildResponse({
+      text:
+        `🎁 Hədiyyə funksiyası tezliklə tam aktivləşəcək.\n\n` +
+        `Hazırda: /referral ilə dostlarınıza kredit qazandıra bilərsiniz.`,
       inputType: 'text',
     });
   }

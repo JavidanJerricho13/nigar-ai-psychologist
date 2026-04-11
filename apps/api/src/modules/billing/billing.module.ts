@@ -4,14 +4,29 @@ import { PrismaCreditRepository } from './infrastructure/adapters/prisma-credit.
 import { GetBalanceUseCase } from './domain/use-cases/get-balance.use-case';
 import { DeductCreditsUseCase } from './domain/use-cases/deduct-credits.use-case';
 import { AddCreditsUseCase } from './domain/use-cases/add-credits.use-case';
+import { GiftCreditsUseCase } from './domain/use-cases/gift-credits.use-case';
+import { GetTransactionHistoryUseCase } from './domain/use-cases/get-transaction-history.use-case';
+import { StripeAdapter } from './infrastructure/adapters/stripe.adapter';
+import { StripeWebhookController } from './infrastructure/controllers/stripe-webhook.controller';
 
 @Module({
+  controllers: [StripeWebhookController],
   providers: [
     { provide: CREDIT_REPOSITORY, useClass: PrismaCreditRepository },
     GetBalanceUseCase,
     DeductCreditsUseCase,
     AddCreditsUseCase,
+    GiftCreditsUseCase,
+    GetTransactionHistoryUseCase,
+    StripeAdapter,
   ],
-  exports: [GetBalanceUseCase, DeductCreditsUseCase, AddCreditsUseCase],
+  exports: [
+    GetBalanceUseCase,
+    DeductCreditsUseCase,
+    AddCreditsUseCase,
+    GiftCreditsUseCase,
+    GetTransactionHistoryUseCase,
+    StripeAdapter,
+  ],
 })
 export class BillingModule {}

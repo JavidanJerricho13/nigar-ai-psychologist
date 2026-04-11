@@ -54,6 +54,8 @@ const mockSynthesizeSpeech = {
   execute: jest.fn().mockResolvedValue({ buffer: Buffer.from('ogg'), oggPath: '/tmp/t.ogg', durationSeconds: 3, creditsRemaining: 2 }),
   cleanup: jest.fn(),
 };
+const mockTransactionHistory = { execute: jest.fn().mockResolvedValue([]) };
+const mockStripeAdapter = { isConfigured: false };
 const mockSession = { clearConversationContext: jest.fn() };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
@@ -69,6 +71,8 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.applyReferral ?? mockApplyReferral as any,
     overrides?.sendMessage ?? mockSendMessage as any,
     overrides?.synthesizeSpeech ?? mockSynthesizeSpeech as any,
+    overrides?.transactionHistory ?? mockTransactionHistory as any,
+    overrides?.stripeAdapter ?? mockStripeAdapter as any,
     overrides?.session ?? mockSession as any,
   );
 }
@@ -271,7 +275,7 @@ describe('CommandRouterService', () => {
 
   describe('stub commands', () => {
     it('should return stub response for unimplemented features', async () => {
-      const stubs = ['pay', 'topics', 'art', 'progress', 'image', 'tales'];
+      const stubs = ['topics', 'art', 'progress', 'image', 'tales'];
       const router = createRouter();
 
       for (const cmd of stubs) {
