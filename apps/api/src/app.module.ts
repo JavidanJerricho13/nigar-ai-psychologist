@@ -14,6 +14,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ReferralModule } from './modules/referral/referral.module';
+import { AdminPanelModule } from './admin/admin.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -38,6 +39,7 @@ import { HealthController } from './health.controller';
     AudioModule,
     BillingModule,
     ReferralModule,
+    AdminPanelModule,
   ],
   controllers: [HealthController],
   providers: [
