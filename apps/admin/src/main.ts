@@ -406,6 +406,9 @@ async function bootstrap() {
 
   const app = express();
 
+  // Initialize AdminJS (bundles custom components)
+  await admin.initialize();
+
   // JSON parsing for API routes
   app.use(express.json());
 
