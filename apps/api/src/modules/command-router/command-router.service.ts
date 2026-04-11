@@ -126,7 +126,12 @@ export class CommandRouterService {
         return this.handleChat(userId, request);
       }
 
-      // 6. Dispatch to handler
+      // 6. Handle /start for returning users (onboarding already completed)
+      if (command === 'start') {
+        return this.handleStartReturning(userId, request);
+      }
+
+      // 7. Dispatch to handler
       const response = await this.routeCommand(command, userId, request);
 
       this.logger.log(
@@ -198,6 +203,45 @@ export class CommandRouterService {
   }
 
   // ===================== HANDLERS =====================
+
+  /** Handle /start for users who already completed onboarding */
+  private async handleStartReturning(
+    userId: string,
+    request: CommandRequest,
+  ): Promise<CommandResponse> {
+    const deepLink = request.deepLinkParam ?? request.payload ?? '';
+
+    // Handle Stripe return deep links
+    if (deepLink === 'payment_success') {
+      const balance = await this.getBalance.execute(userId);
+      return this.buildResponse({
+        text: `✅ Ödəniş uğurla tamamlandı!\n\n💳 Cari balans: ${balance.balance} kredit\n\nİndi mənə yaz — söhbətimizə davam edək! 💬`,
+        inputType: 'text',
+      });
+    }
+
+    if (deepLink === 'payment_cancel') {
+      return this.buildResponse({
+        text: `❌ Ödəniş ləğv edildi.\n\nYenidən cəhd etmək üçün: /pay`,
+        inputType: 'text',
+      });
+    }
+
+    // Normal /start for returning user — welcome back
+    const full = await this.getFullProfile.execute(userId);
+    const name = full?.profile?.name ?? 'Dostum';
+
+    return this.buildResponse({
+      text:
+        `Xoş gəldin geri, ${name}! 👋\n\n` +
+        `Mən Nigar — sənin AI psixoloqunam.\n` +
+        `Mənə istənilən sualını yaz, söhbətimizə davam edək! 💬\n\n` +
+        `/roles — Rol dəyiş\n` +
+        `/settings — Parametrlər\n` +
+        `/balance — Balans`,
+      inputType: 'text',
+    });
+  }
 
   private async handleOnboarding(
     userId: string,
