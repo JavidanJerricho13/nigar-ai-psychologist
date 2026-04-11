@@ -1,43 +1,33 @@
 /**
- * Admin Panel — standalone Express server with AdminJS.
- * Completely separate from the bot process.
+ * Nigar AI — Admin Panel (standalone ESM process)
  *
- * Usage: node dist/admin-entry.js
+ * Completely isolated from the bot. Runs on its own port.
+ * Uses AdminJS v7 (ESM) + Express + Prisma.
+ *
+ * Usage: node dist/main.js
  * Access: http://localhost:3001/admin
  */
-import * as path from 'path';
-import * as dotenv from 'dotenv';
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import dotenv from 'dotenv';
+
+// Load .env from project root
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
-dotenv.config();
+dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import express from 'express';
+import AdminJS from 'adminjs';
+import AdminJSExpress from '@adminjs/express';
+import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@nigar/prisma-client';
 
-// AdminJS v7 is pure ESM — tsc converts import() to require() under commonjs.
-// Use Function trick to preserve real dynamic import() at runtime.
-const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+// Register Prisma adapter
+AdminJS.registerAdapter({ Database, Resource });
 
-let AdminJS: any;
-let AdminJSExpress: any;
-let getModelByName: any;
 const prisma = new PrismaClient();
 
-async function loadAdminJS() {
-  const adminjsModule = await dynamicImport('adminjs');
-  AdminJS = adminjsModule.default ?? adminjsModule;
-
-  const expressModule = await dynamicImport('@adminjs/express');
-  AdminJSExpress = expressModule.default ?? expressModule;
-
-  const prismaModule = await dynamicImport('@adminjs/prisma');
-  const { Database, Resource } = prismaModule;
-  getModelByName = prismaModule.getModelByName;
-
-  AdminJS.registerAdapter({ Database, Resource });
-}
-
-// ===================== RESOURCE CONFIG =====================
+// ===================== RESOURCES =====================
 
 function buildResources() {
   const r = (
@@ -50,6 +40,7 @@ function buildResources() {
   });
 
   return [
+    // 👥 Users
     r('User', ['telegramId', 'isActive', 'referralCode', 'createdAt'], {
       actions: { export: { isAccessible: true } },
       navigation: { name: '👥 Users', icon: 'User' },
@@ -60,6 +51,12 @@ function buildResources() {
     r('UserSettings', ['activeRole', 'responseFormat', 'nigarBlackRudenessEnabled', 'language'], {
       navigation: { name: '👥 Users', icon: 'User' },
     }),
+    r('Referral', ['referrerId', 'referredId', 'bonusCredited', 'createdAt'], {
+      actions: { new: { isAccessible: false }, edit: { isAccessible: false }, delete: { isAccessible: false } },
+      navigation: { name: '👥 Users', icon: 'User' },
+    }),
+
+    // 💰 Billing
     r('Credit', ['balance', 'freeVoiceRemaining', 'totalPurchased', 'totalSpent'], {
       navigation: { name: '💰 Billing', icon: 'Money' },
     }),
@@ -72,6 +69,8 @@ function buildResources() {
       },
       navigation: { name: '💰 Billing', icon: 'Money' },
     }),
+
+    // 💬 Chats
     r('Conversation', ['roleUsed', 'messageCount', 'startedAt', 'endedAt'], {
       navigation: { name: '💬 Chats', icon: 'Chat' },
     }),
@@ -86,10 +85,8 @@ function buildResources() {
       },
       navigation: { name: '💬 Chats', icon: 'Chat' },
     }),
-    r('Referral', ['referrerId', 'referredId', 'bonusCredited', 'createdAt'], {
-      actions: { new: { isAccessible: false }, edit: { isAccessible: false }, delete: { isAccessible: false } },
-      navigation: { name: '👥 Users', icon: 'User' },
-    }),
+
+    // 📋 Onboarding
     r('OnboardingState', ['currentStep', 'privacyAccepted', 'completedAt'], {
       navigation: { name: '📋 Onboarding', icon: 'Document' },
     }),
@@ -99,9 +96,6 @@ function buildResources() {
 // ===================== BOOTSTRAP =====================
 
 async function bootstrap() {
-  // Load ESM modules via dynamic import
-  await loadAdminJS();
-
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@nigar.ai';
   const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin';
   const sessionSecret = process.env.ENCRYPTION_KEY ?? 'change-this-secret-in-production-32chars!!';
@@ -113,7 +107,7 @@ async function bootstrap() {
     branding: {
       companyName: 'Nigar AI — Admin',
       logo: false,
-      softwareBrothers: false,
+      withMadeWithLove: false,
     },
   });
 
@@ -129,7 +123,7 @@ async function bootstrap() {
       cookieName: 'nigar-admin',
       cookiePassword: sessionSecret,
     },
-    null, // no custom router
+    null,
     {
       resave: false,
       saveUninitialized: false,
