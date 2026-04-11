@@ -65,6 +65,19 @@ function decryptHook(response: any) {
   return response;
 }
 
+// ===================== AUDIT LOGGING =====================
+
+async function logAdminAction(action: string, targetId: string, details?: any) {
+  const adminEmail = process.env.ADMIN_EMAIL ?? 'admin';
+  try {
+    await prisma.adminAction.create({
+      data: { adminEmail, action, targetId, details: details ?? undefined },
+    });
+  } catch (err) {
+    console.error(`Failed to log admin action: ${(err as Error).message}`);
+  }
+}
+
 // ===================== RESOURCES =====================
 
 function buildResources() {
@@ -78,11 +91,116 @@ function buildResources() {
   });
 
   return [
-    // 👥 Users
+    // ===================== 👥 Users =====================
     r('User', ['telegramId', 'isActive', 'referralCode', 'createdAt'], {
-      actions: { export: { isAccessible: true } },
+      actions: {
+        export: { isAccessible: true },
+
+        // 🎁 Grant Credits
+        grantCredits: {
+          actionType: 'record',
+          icon: 'Money',
+          label: '🎁 Grant Credits',
+          handler: async (request: any, response: any, context: any) => {
+            const { record, currentAdmin } = context;
+            if (request.method === 'post') {
+              const amount = parseInt(request.payload?.amount ?? '0', 10);
+              const description = request.payload?.description ?? 'Admin grant';
+
+              if (amount <= 0) {
+                return { record: record.toJSON(), notice: { message: 'Amount must be positive', type: 'error' } };
+              }
+
+              const userId = record.params.id;
+
+              // Ensure credit record exists
+              await prisma.credit.upsert({
+                where: { userId },
+                create: { userId },
+                update: {},
+              });
+
+              // Add credits
+              await prisma.credit.update({
+                where: { userId },
+                data: { balance: { increment: amount } },
+              });
+
+              // Transaction record
+              await prisma.transaction.create({
+                data: { userId, type: 'gift', amount, description: `[Admin] ${description}` },
+              });
+
+              await logAdminAction('grant_credits', userId, { amount, description });
+
+              return {
+                record: record.toJSON(),
+                notice: { message: `✅ Granted ${amount} credits`, type: 'success' },
+              };
+            }
+            return { record: record.toJSON() };
+          },
+          component: false,
+        },
+
+        // 🚫 Ban / Unban
+        toggleBan: {
+          actionType: 'record',
+          icon: 'Lock',
+          label: '🚫 Ban/Unban',
+          handler: async (_request: any, _response: any, context: any) => {
+            const { record } = context;
+            const userId = record.params.id;
+            const currentlyActive = record.params.isActive;
+
+            await prisma.user.update({
+              where: { id: userId },
+              data: { isActive: !currentlyActive },
+            });
+
+            await logAdminAction(currentlyActive ? 'ban_user' : 'unban_user', userId);
+
+            return {
+              record: { ...record.toJSON(), params: { ...record.params, isActive: !currentlyActive } },
+              notice: {
+                message: currentlyActive ? '🚫 User banned' : '✅ User unbanned',
+                type: 'success',
+              },
+            };
+          },
+          component: false,
+          guard: 'Are you sure you want to toggle this user\'s access?',
+        },
+
+        // 🔄 Reset Onboarding
+        resetOnboarding: {
+          actionType: 'record',
+          icon: 'Reset',
+          label: '🔄 Reset Onboarding',
+          handler: async (_request: any, _response: any, context: any) => {
+            const { record } = context;
+            const userId = record.params.id;
+
+            await prisma.onboardingState.deleteMany({ where: { userId } });
+            await prisma.userProfile.updateMany({
+              where: { userId },
+              data: { onboardingCompleted: false },
+            });
+
+            await logAdminAction('reset_onboarding', userId);
+
+            return {
+              record: record.toJSON(),
+              notice: { message: '✅ Onboarding reset — user can /start again', type: 'success' },
+            };
+          },
+          component: false,
+          guard: 'This will delete the user\'s onboarding progress. Continue?',
+        },
+      },
       navigation: { name: '👥 Users', icon: 'User' },
     }),
+
     r('UserProfile', ['name', 'gender', 'age', 'onboardingCompleted'], {
       navigation: { name: '👥 Users', icon: 'User' },
     }),
@@ -94,7 +212,7 @@ function buildResources() {
       navigation: { name: '👥 Users', icon: 'User' },
     }),
 
-    // 💰 Billing
+    // ===================== 💰 Billing =====================
     r('Credit', ['balance', 'freeVoiceRemaining', 'totalPurchased', 'totalSpent'], {
       navigation: { name: '💰 Billing', icon: 'Money' },
     }),
@@ -108,10 +226,56 @@ function buildResources() {
       navigation: { name: '💰 Billing', icon: 'Money' },
     }),
 
-    // 💬 Chats
+    // ===================== 💬 Chats =====================
     r('Conversation', ['roleUsed', 'messageCount', 'startedAt', 'endedAt'], {
+      actions: {
+        // 💬 View Chat — decrypted conversation viewer
+        viewChat: {
+          actionType: 'record',
+          icon: 'View',
+          label: '💬 View Chat',
+          handler: async (_request: any, _response: any, context: any) => {
+            const { record } = context;
+            const conversationId = record.params.id;
+
+            const messages = await prisma.message.findMany({
+              where: { conversationId },
+              orderBy: { createdAt: 'asc' },
+              select: { role: true, content: true, createdAt: true, llmProvider: true },
+            });
+
+            const decryptedChat = messages.map((m) => ({
+              role: m.role,
+              content: decryptContent(m.content),
+              time: m.createdAt.toLocaleString('az-AZ'),
+              provider: m.llmProvider,
+            }));
+
+            // Format as readable text
+            const chatText = decryptedChat.map((m) => {
+              const icon = m.role === 'user' ? '👤 User' : '🤖 Nigar';
+              const provider = m.role === 'assistant' && m.provider ? ` [${m.provider}]` : '';
+              return `${icon}${provider} (${m.time}):\n${m.content}`;
+            }).join('\n\n---\n\n');
+
+            // Store in record params for display
+            const updatedRecord = record.toJSON();
+            updatedRecord.params.chatHistory = chatText || 'No messages in this conversation.';
+
+            return { record: updatedRecord };
+          },
+          component: false,
+        },
+      },
+      properties: {
+        chatHistory: {
+          isVisible: { list: false, show: true, edit: false, filter: false },
+          type: 'textarea',
+        },
+      },
       navigation: { name: '💬 Chats', icon: 'Chat' },
     }),
+
     r('Message', ['role', 'content', 'llmProvider', 'tokensUsed', 'createdAt'], {
       properties: {
         content: {
@@ -129,23 +293,50 @@ function buildResources() {
       navigation: { name: '💬 Chats', icon: 'Chat' },
     }),
 
-    // 📋 Onboarding
+    // ===================== 📋 Onboarding =====================
     r('OnboardingState', ['currentStep', 'privacyAccepted', 'completedAt'], {
       navigation: { name: '📋 Onboarding', icon: 'Document' },
     }),
 
-    // 🆘 Safety
+    // ===================== 🆘 Safety =====================
     r('CrisisEvent', ['severity', 'keywords', 'handled', 'createdAt'], {
       actions: {
         export: { isAccessible: true },
         new: { isAccessible: false },
-        edit: { isAccessible: true }, // allow marking as handled
         delete: { isAccessible: false },
+
+        // ✅ Mark Crisis Handled
+        markHandled: {
+          actionType: 'record',
+          icon: 'Check',
+          label: '✅ Mark Handled',
+          handler: async (_request: any, _response: any, context: any) => {
+            const { record } = context;
+            const crisisId = record.params.id;
+
+            await prisma.crisisEvent.update({
+              where: { id: crisisId },
+              data: { handled: true },
+            });
+
+            await logAdminAction('handle_crisis', crisisId, {
+              severity: record.params.severity,
+              userId: record.params.userId,
+            });
+
+            return {
+              record: { ...record.toJSON(), params: { ...record.params, handled: true } },
+              notice: { message: '✅ Crisis marked as handled', type: 'success' },
+            };
+          },
+          component: false,
+          guard: 'Mark this crisis event as handled?',
+        },
       },
       navigation: { name: '🆘 Safety', icon: 'Alert' },
     }),
 
-    // ⚙️ Admin
+    // ===================== ⚙️ Admin =====================
     r('AdminAction', ['adminEmail', 'action', 'targetId', 'createdAt'], {
       actions: {
         new: { isAccessible: false },
