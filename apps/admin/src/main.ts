@@ -22,6 +22,8 @@ import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@nigar/prisma-client';
+import { AnalyticsCacheService } from './services/analytics-cache.service.js';
+import { AnalyticsService } from './services/analytics.service.js';
 
 // Register Prisma adapter
 AdminJS.registerAdapter({ Database, Resource });
@@ -386,12 +388,91 @@ async function bootstrap() {
     },
   );
 
+  // ===================== ANALYTICS =====================
+  const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
+  const cacheService = new AnalyticsCacheService(redisUrl);
+  const analytics = new AnalyticsService(prisma, cacheService);
+
   const app = express();
+
+  // JSON parsing for API routes
+  app.use(express.json());
+
+  // Metrics API endpoints (no AdminJS auth — protected by separate session)
+  app.get('/admin/api/metrics', async (_req, res) => {
+    try { res.json(await analytics.getAllMetrics()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/revenue', async (req, res) => {
+    try { res.json(await analytics.getRevenueOverTime(parseInt(req.query.days as string) || 30)); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/retention', async (_req, res) => {
+    try { res.json(await analytics.getRetentionCohorts()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/referrers', async (req, res) => {
+    try { res.json(await analytics.getReferralRoi(parseInt(req.query.limit as string) || 20)); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/demographics', async (_req, res) => {
+    try { res.json(await analytics.getDemographics()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.post('/admin/api/metrics/refresh', async (_req, res) => {
+    try {
+      await cacheService.invalidateAll();
+      await analytics.warmUpAll();
+      res.json({ message: 'All metrics refreshed' });
+    } catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+
+  // AdminJS routes
   app.use(admin.options.rootPath, router);
 
-  app.listen(port, () => {
+  // ===================== CRON JOBS =====================
+  const cron = await import('node-cron');
+
+  // Hourly: medium-weight metrics (revenue, personas, content)
+  cron.schedule('0 * * * *', async () => {
+    console.log('[Cron] Hourly metrics refresh...');
+    try {
+      await cacheService.invalidate('financial:kpis');
+      await cacheService.invalidate('ai:personas');
+      await cacheService.invalidate('ai:content');
+      await cacheService.invalidate('ai:tokens');
+      await cacheService.invalidate('engagement:onboarding');
+      await analytics.getFinancialKpis();
+      await analytics.getPersonaStats();
+      await analytics.getContentStats();
+      await analytics.getTokenStats();
+      await analytics.getOnboardingFunnel();
+      console.log('[Cron] Hourly refresh done');
+    } catch (err) { console.error('[Cron] Hourly refresh failed:', (err as Error).message); }
+  });
+
+  // Daily 3 AM: heavy metrics (retention, demographics, referral ROI)
+  cron.schedule('0 3 * * *', async () => {
+    console.log('[Cron] Daily heavy metrics refresh...');
+    try {
+      await cacheService.invalidate('engagement:retention');
+      await cacheService.invalidate('engagement:demographics');
+      await cacheService.invalidate('financial:referrers');
+      await analytics.getRetentionCohorts();
+      await analytics.getDemographics();
+      await analytics.getReferralRoi();
+      console.log('[Cron] Daily refresh done');
+    } catch (err) { console.error('[Cron] Daily refresh failed:', (err as Error).message); }
+  });
+
+  app.listen(port, async () => {
     console.log(`🔧 Nigar AI Admin Panel: http://localhost:${port}/admin`);
+    console.log(`📊 Metrics API: http://localhost:${port}/admin/api/metrics`);
     console.log(`   Login: ${adminEmail}`);
+
+    // Initial warm-up
+    try { await analytics.warmUpAll(); }
+    catch (err) { console.error('[Analytics] Initial warm-up failed:', (err as Error).message); }
   });
 }
 
