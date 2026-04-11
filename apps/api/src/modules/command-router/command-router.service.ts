@@ -88,8 +88,32 @@ export class CommandRouterService {
         }
       }
 
-      // 5. If no command and not in onboarding → treat as chat message
+      // 5. If no command and not in onboarding → check for prefixed callbacks or chat
       if (!command) {
+        const payload = request.payload ?? '';
+
+        // Role switch callback: "role:nigar_black"
+        if (payload.startsWith('role:')) {
+          return this.handleRoleSwitch(userId, payload.slice(5));
+        }
+
+        // Rudeness toggle callback: "toggle:rudeness:on" / "toggle:rudeness:off"
+        if (payload.startsWith('toggle:rudeness:')) {
+          return this.handleRudenessToggle(userId, payload.slice(16));
+        }
+
+        // Command redirect callback: "cmd:roles" / "cmd:format"
+        if (payload.startsWith('cmd:')) {
+          const redirectCmd = payload.slice(4);
+          return this.routeCommand(redirectCmd, userId, request);
+        }
+
+        // "hide" button — just acknowledge silently
+        if (payload === 'hide') {
+          return this.buildResponse({ text: '👌', inputType: 'text' });
+        }
+
+        // Default: treat as chat message
         return this.handleChat(userId, request);
       }
 
@@ -176,27 +200,33 @@ export class CommandRouterService {
     };
   }
 
-  private async handleRoles(_userId: string): Promise<CommandResponse> {
+  private async handleRoles(userId: string): Promise<CommandResponse> {
+    const profile = await this.getFullProfile.execute(userId);
+    const currentRole = profile?.settings?.activeRole ?? 'nigar';
+
     const roles = [
-      { cmd: '/nigar', name: 'Nigar Psixoloq', desc: 'Standart psixoloji dəstək' },
-      { cmd: '/nigar_black', name: 'Nigar Black — Qaranlıq psixoloq', desc: 'Birbaşa, kəskin, bəzən toksik. Mübahisəli mövzularda açıq danışır.' },
-      { cmd: '/super_nigar', name: 'Super Nigar — Ən ağıllı neyroşəbəkə', desc: 'Ən güclü model ilə işləyir' },
-      { cmd: '/nigar_dost', name: 'Nigar Dost — Rəfiqə', desc: 'Yaxın rəfiqə kimi söhbət' },
-      { cmd: '/nigar_trainer', name: 'Nigar Trainer — Konflikt məşqçisi', desc: 'Çətin söhbətlərə hazırlaşmağa kömək edir' },
-      { cmd: '/nigar_18plus', name: 'Nigar 18+', desc: '🔞' },
+      { key: ActiveRole.NIGAR, name: 'Nigar Psixoloq', desc: 'Standart psixoloji dəstək' },
+      { key: ActiveRole.NIGAR_BLACK, name: 'Nigar Black — Qaranlıq psixoloq', desc: 'Birbaşa, kəskin, provokativ' },
+      { key: ActiveRole.SUPER_NIGAR, name: 'Super Nigar — Ən ağıllı', desc: 'Ən güclü model ilə işləyir' },
+      { key: ActiveRole.NIGAR_DOST, name: 'Nigar Dost — Rəfiqə', desc: 'Yaxın rəfiqə kimi söhbət' },
+      { key: ActiveRole.NIGAR_TRAINER, name: 'Nigar Trainer', desc: 'Konflikt məşqçisi' },
+      { key: ActiveRole.NIGAR_18PLUS, name: 'Nigar 18+', desc: '🔞' },
     ];
 
     const text = roles
-      .map((r) => `${r.cmd} - ${r.name}\n  _${r.desc}_`)
+      .map((r) => {
+        const marker = r.key === currentRole ? ' ✅' : '';
+        return `/${r.key} - ${r.name}${marker}\n  _${r.desc}_`;
+      })
       .join('\n\n');
 
     return this.buildResponse({
-      text: `🎭 Mövcud rollar:\n\n${text}`,
+      text: `🎭 Mövcud rollar:\n\nHazırda: **${currentRole}**\n\n${text}`,
       options: [
         ...roles.map((r) => ({
-          id: r.cmd.replace('/', ''),
-          label: r.name,
-          value: r.cmd.replace('/', ''),
+          id: r.key,
+          label: `${r.key === currentRole ? '✅ ' : ''}${r.name}`,
+          value: `role:${r.key}`,
         })),
         { id: 'hide', label: 'Gizlət', value: 'hide' },
       ],
@@ -204,37 +234,101 @@ export class CommandRouterService {
     });
   }
 
-  private async handleSettings(
+  /** Handle role switch from callback: "role:nigar_black" */
+  private async handleRoleSwitch(
     userId: string,
-    request: CommandRequest,
+    roleKey: string,
   ): Promise<CommandResponse> {
-    // If payload contains a setting change, apply it
-    if (request.payload) {
-      const role = Object.values(ActiveRole).find((r) => r === request.payload);
-      if (role) {
-        await this.updateSettings.execute({ userId, activeRole: role });
-        return this.buildResponse({
-          text: `✅ Rol dəyişdirildi: ${role}`,
-          inputType: 'text',
-        });
-      }
+    const role = Object.values(ActiveRole).find((r) => r === roleKey);
+    if (!role) {
+      return this.buildResponse({ text: '❌ Naməlum rol.', inputType: 'text' });
     }
 
-    // Show current settings
+    await this.updateSettings.execute({ userId, activeRole: role });
+
+    const roleNames: Record<string, string> = {
+      [ActiveRole.NIGAR]: 'Nigar Psixoloq',
+      [ActiveRole.NIGAR_BLACK]: 'Nigar Black — Qaranlıq psixoloq',
+      [ActiveRole.SUPER_NIGAR]: 'Super Nigar — Ən ağıllı neyroşəbəkə',
+      [ActiveRole.NIGAR_DOST]: 'Nigar Dost — Rəfiqə',
+      [ActiveRole.NIGAR_TRAINER]: 'Nigar Trainer — Konflikt məşqçisi',
+      [ActiveRole.NIGAR_18PLUS]: 'Nigar 18+',
+    };
+
+    const displayName = roleNames[role] ?? role;
+    const extra = role === ActiveRole.NIGAR_BLACK
+      ? '\n\n⚙️ /settings — kobudluq rejimini aç/bağla'
+      : '';
+
+    this.logger.log(`Role switched to ${role} for user ${userId.slice(0, 8)}`);
+
+    return this.buildResponse({
+      text: `✅ Rol dəyişdirildi: **${displayName}**${extra}`,
+      inputType: 'text',
+    });
+  }
+
+  private async handleSettings(
+    userId: string,
+    _request: CommandRequest,
+  ): Promise<CommandResponse> {
     const profile = await this.getFullProfile.execute(userId);
     const s = profile?.settings;
     const roleName = s?.activeRole ?? 'nigar';
     const format = s?.responseFormat ?? 'text';
-    const rudeness = s?.nigarBlackRudenessEnabled ? 'Açıq' : 'Bağlı';
+    const rudenessOn = s?.nigarBlackRudenessEnabled ?? false;
+
+    const formatLabel = format === 'voice' ? 'Səs' : format === 'voice_and_text' ? 'Səs + Mətn' : 'Mətn';
+
+    const roleNames: Record<string, string> = {
+      nigar: 'Nigar Psixoloq',
+      nigar_black: 'Nigar Black',
+      super_nigar: 'Super Nigar',
+      nigar_dost: 'Nigar Dost',
+      nigar_trainer: 'Nigar Trainer',
+      nigar_18plus: 'Nigar 18+',
+    };
 
     return this.buildResponse({
       text:
         `⚙️ Parametrlər:\n\n` +
-        `🎭 Aktiv rol: ${roleName}\n` +
-        `🎙 Cavab formatı: ${format}\n` +
-        `🤬 Kobudluq (Nigar Black): ${rudeness}\n\n` +
-        `/roles - Rol dəyiş\n` +
-        `/format - Format dəyiş`,
+        `🎭 Aktiv rol: ${roleNames[roleName] ?? roleName}\n` +
+        `🎙 Cavab formatı: ${formatLabel}\n` +
+        `🤬 Kobudluq (Nigar Black): ${rudenessOn ? '✅ Açıq' : '❌ Bağlı'}\n\n` +
+        `Dəyişmək üçün düymələri istifadə et 👇`,
+      options: [
+        { id: 'roles', label: '🎭 Rol dəyiş', value: 'cmd:roles' },
+        { id: 'format', label: '🎙 Format dəyiş', value: 'cmd:format' },
+        {
+          id: 'rudeness',
+          label: rudenessOn ? '🤬 Kobudluq: BAĞLA' : '🤬 Kobudluq: AÇ',
+          value: `toggle:rudeness:${rudenessOn ? 'off' : 'on'}`,
+        },
+        { id: 'hide', label: 'Gizlət', value: 'hide' },
+      ],
+      inputType: 'button',
+    });
+  }
+
+  /** Handle rudeness toggle from callback: "toggle:rudeness:on/off" */
+  private async handleRudenessToggle(
+    userId: string,
+    state: string,
+  ): Promise<CommandResponse> {
+    const enabled = state === 'on';
+    await this.updateSettings.execute({ userId, nigarBlackRudenessEnabled: enabled });
+
+    this.logger.log(`Rudeness toggle: ${enabled ? 'ON' : 'OFF'} for user ${userId.slice(0, 8)}`);
+
+    if (enabled) {
+      return this.buildResponse({
+        text: `🤬 Kobudluq rejimi **AÇILDI**.\n\nNigar Black indi söyüş və argo istifadə edəcək.\n⚠️ Diqqət: bu rejim yalnız Nigar Black rolu ilə işləyir.`,
+        inputType: 'text',
+      });
+    }
+
+    return this.buildResponse({
+      text: `✅ Kobudluq rejimi **BAĞLANDI**.\n\nNigar Black indi daha mülayim olacaq.`,
       inputType: 'text',
     });
   }

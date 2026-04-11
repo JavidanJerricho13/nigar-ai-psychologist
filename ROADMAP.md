@@ -66,7 +66,7 @@
 - [ ] **Create payment adapter stub** (for testing without real processor)
   - File: `apps/api/src/modules/billing/infrastructure/adapters/payment.adapter.ts`
   - Interface: `PaymentAdapterPort.createCheckout(userId, amount)`
-- [ ] **Integrate Stripe (or Telegram Payments API)**
+- [ ] **Integrate Stripe**
   - Create Stripe checkout session → redirect user
   - Webhook handler: on payment success → `AddCreditsUseCase.execute()`
   - File: `apps/api/src/modules/billing/infrastructure/adapters/stripe.adapter.ts`
