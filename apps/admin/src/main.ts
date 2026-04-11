@@ -18,7 +18,7 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 import crypto from 'node:crypto';
 import express from 'express';
-import AdminJS from 'adminjs';
+import AdminJS, { ComponentLoader } from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
 import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@nigar/prisma-client';
@@ -27,6 +27,10 @@ import { AnalyticsService } from './services/analytics.service.js';
 
 // Register Prisma adapter
 AdminJS.registerAdapter({ Database, Resource });
+
+// Component loader for custom dashboard
+const componentLoader = new ComponentLoader();
+const DashboardComponent = componentLoader.add('Dashboard', './components/Dashboard');
 
 const prisma = new PrismaClient();
 
@@ -361,6 +365,10 @@ async function bootstrap() {
   const admin = new AdminJS({
     rootPath: '/admin',
     resources: buildResources(),
+    componentLoader,
+    dashboard: {
+      component: DashboardComponent,
+    },
     branding: {
       companyName: 'Nigar AI — Admin',
       logo: false,
@@ -425,6 +433,55 @@ async function bootstrap() {
       await analytics.warmUpAll();
       res.json({ message: 'All metrics refreshed' });
     } catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+
+  // Individual metric endpoints
+  app.get('/admin/api/metrics/kpi', async (_req, res) => {
+    try {
+      const [financial, engagement, onboarding] = await Promise.all([
+        analytics.getFinancialKpis(),
+        analytics.getEngagementKpis(),
+        analytics.getOnboardingFunnel(),
+      ]);
+      res.json({
+        totalUsers: engagement.totalUsers,
+        dau: engagement.dau,
+        wau: engagement.wau,
+        mau: engagement.mau,
+        stickiness: engagement.stickiness,
+        revenue: financial.totalRevenue,
+        arpu: financial.arpu,
+        ltv: financial.ltv,
+        onboardingRate: onboarding.completionRate,
+        payingRatio: financial.payingUserRatio,
+        newUsersToday: engagement.newUsersToday,
+        avgMessagesPerSession: engagement.avgMessagesPerSession,
+      });
+    } catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/personas', async (_req, res) => {
+    try { res.json(await analytics.getPersonaStats()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/onboarding', async (_req, res) => {
+    try { res.json(await analytics.getOnboardingFunnel()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/providers', async (_req, res) => {
+    try { res.json(await analytics.getTokenStats()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/safety', async (_req, res) => {
+    try { res.json(await analytics.getSafetyStats()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/content', async (_req, res) => {
+    try { res.json(await analytics.getContentStats()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
+  });
+  app.get('/admin/api/metrics/burn', async (_req, res) => {
+    try { res.json(await analytics.getCreditBurnRate()); }
+    catch (err) { res.status(500).json({ error: (err as Error).message }); }
   });
 
   // AdminJS routes
