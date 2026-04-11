@@ -133,6 +133,27 @@ function buildResources() {
     r('OnboardingState', ['currentStep', 'privacyAccepted', 'completedAt'], {
       navigation: { name: '📋 Onboarding', icon: 'Document' },
     }),
+
+    // 🆘 Safety
+    r('CrisisEvent', ['severity', 'keywords', 'handled', 'createdAt'], {
+      actions: {
+        export: { isAccessible: true },
+        new: { isAccessible: false },
+        edit: { isAccessible: true }, // allow marking as handled
+        delete: { isAccessible: false },
+      },
+      navigation: { name: '🆘 Safety', icon: 'Alert' },
+    }),
+
+    // ⚙️ Admin
+    r('AdminAction', ['adminEmail', 'action', 'targetId', 'createdAt'], {
+      actions: {
+        new: { isAccessible: false },
+        edit: { isAccessible: false },
+        delete: { isAccessible: false },
+      },
+      navigation: { name: '⚙️ Admin', icon: 'Settings' },
+    }),
   ];
 }
 

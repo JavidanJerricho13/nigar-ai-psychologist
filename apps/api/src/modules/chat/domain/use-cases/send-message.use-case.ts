@@ -50,7 +50,7 @@ export class SendMessageUseCase {
     const { cleaned: cleanedMessage } = this.piiStripper.strip(input.message);
 
     // 3. Crisis detection (lightweight check)
-    const isCrisis = await this.detectCrisis(cleanedMessage);
+    const crisisResult = await this.detectCrisis(cleanedMessage, input.userId);
 
     // 4. Load conversation history from Redis cache
     const rawHistory = await this.session.getConversationContext(conversationId);
@@ -75,12 +75,12 @@ export class SendMessageUseCase {
     const response = await this.fallbackRouter.complete(
       { messages, temperature: 0.7 },
       input.persona,
-      isCrisis,
+      crisisResult.isCrisis,
     );
 
     // 8. If crisis, prepend safety message
     let finalReply = response.content;
-    if (isCrisis) {
+    if (crisisResult.isCrisis) {
       finalReply = `🆘 Mən sənin yanındayam. Amma bu vəziyyətdə mütəxəssis köməyi lazımdır.\nZəhmət olmasa böhran xəttinə zəng et: 860-510-510\nSən tək deyilsən.\n\n---\n\n${finalReply}`;
     }
 
@@ -110,7 +110,7 @@ export class SendMessageUseCase {
     });
 
     this.logger.log(
-      `Chat: user:${input.userId.slice(0, 8)} | ${response.provider}/${response.model} | ${response.tokensUsed} tokens${isCrisis ? ' | 🆘 CRISIS' : ''}`,
+      `Chat: user:${input.userId.slice(0, 8)} | ${response.provider}/${response.model} | ${response.tokensUsed} tokens${crisisResult.isCrisis ? ' | 🆘 CRISIS' : ''}`,
     );
 
     return {
@@ -119,13 +119,15 @@ export class SendMessageUseCase {
       tokensUsed: response.tokensUsed,
       provider: response.provider,
       model: response.model,
-      isCrisis,
+      isCrisis: crisisResult.isCrisis,
     };
   }
 
-  /** Lightweight crisis detection using a fast model */
-  private async detectCrisis(message: string): Promise<boolean> {
-    // Quick keyword check first (avoid LLM call for obvious non-crisis)
+  /** Lightweight crisis detection — returns details and persists to DB */
+  private async detectCrisis(
+    message: string,
+    userId: string,
+  ): Promise<{ isCrisis: boolean; severity: string; keywords: string[] }> {
     const crisisKeywords = [
       'intihar', 'özümü öldür', 'yaşamaq istəmirəm', 'ölmək istəyirəm',
       'самоубийство', 'не хочу жить', 'suicide', 'kill myself',
@@ -133,11 +135,14 @@ export class SendMessageUseCase {
     ];
 
     const lowerMsg = message.toLowerCase();
-    const hasKeyword = crisisKeywords.some((kw) => lowerMsg.includes(kw));
+    const matchedKeywords = crisisKeywords.filter((kw) => lowerMsg.includes(kw));
 
-    if (!hasKeyword) return false;
+    if (matchedKeywords.length === 0) {
+      return { isCrisis: false, severity: 'none', keywords: [] };
+    }
 
     // Keyword found — verify with LLM
+    let severity = 'high'; // default if LLM fails
     try {
       const response = await this.fallbackRouter.complete(
         {
@@ -149,22 +154,38 @@ export class SendMessageUseCase {
           temperature: 0,
         },
         ActiveRole.NIGAR,
-        true, // Use crisis model chain
+        true,
       );
 
       const parsed = JSON.parse(response.content);
-      const isCrisis = parsed.isCrisis === true && ['high', 'critical'].includes(parsed.severity);
+      severity = parsed.severity ?? 'high';
+      const isCrisis = parsed.isCrisis === true && ['high', 'critical'].includes(severity);
 
-      if (isCrisis) {
-        this.logger.warn(`🆘 Crisis detected: severity=${parsed.severity}, reason=${parsed.reason}`);
+      if (!isCrisis) {
+        return { isCrisis: false, severity, keywords: matchedKeywords };
       }
-
-      return isCrisis;
     } catch {
-      // If crisis detection fails, err on the side of caution
       this.logger.warn('Crisis detection LLM call failed — defaulting to crisis=true for keyword match');
-      return true;
     }
+
+    // Persist crisis event to DB
+    try {
+      await this.prisma.crisisEvent.create({
+        data: {
+          userId,
+          severity,
+          keywords: matchedKeywords,
+          handled: false,
+        },
+      });
+      this.logger.warn(
+        `🆘 Crisis persisted to DB: user=${userId.slice(0, 8)}, severity=${severity}, keywords=[${matchedKeywords.join(', ')}]`,
+      );
+    } catch (err) {
+      this.logger.error(`Failed to persist crisis event: ${(err as Error).message}`);
+    }
+
+    return { isCrisis: true, severity, keywords: matchedKeywords };
   }
 
   private async createConversation(userId: string, persona: ActiveRole): Promise<string> {

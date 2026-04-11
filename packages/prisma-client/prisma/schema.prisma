@@ -70,6 +70,7 @@ model User {
   transactions    Transaction[]
   referralsMade   Referral[]       @relation("ReferrerReferrals")
   referralsFrom   Referral[]       @relation("ReferredReferrals")
+  crisisEvents    CrisisEvent[]
 
   @@index([referredBy])
   @@map("users")
@@ -194,4 +195,31 @@ model OnboardingState {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("onboarding_states")
+}
+
+// ===================== SAFETY & ADMIN =====================
+
+model CrisisEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  severity  String   @db.VarChar(20)
+  keywords  String[]
+  handled   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("crisis_events")
+}
+
+model AdminAction {
+  id         String   @id @default(uuid()) @db.Uuid
+  adminEmail String   @map("admin_email")
+  action     String
+  targetId   String?  @map("target_id")
+  details    Json?    @db.JsonB
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("admin_actions")
 }
