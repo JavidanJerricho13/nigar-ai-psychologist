@@ -50,6 +50,10 @@ const mockSendMessage = {
     reply: 'AI cavab', conversationId: 'conv-1', tokensUsed: 50, provider: 'groq', model: 'llama-3.3-70b', isCrisis: false,
   }),
 };
+const mockSynthesizeSpeech = {
+  execute: jest.fn().mockResolvedValue({ buffer: Buffer.from('ogg'), oggPath: '/tmp/t.ogg', durationSeconds: 3, creditsRemaining: 2 }),
+  cleanup: jest.fn(),
+};
 const mockSession = { clearConversationContext: jest.fn() };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
@@ -64,6 +68,7 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.getReferralInfo ?? mockGetReferralInfo as any,
     overrides?.applyReferral ?? mockApplyReferral as any,
     overrides?.sendMessage ?? mockSendMessage as any,
+    overrides?.synthesizeSpeech ?? mockSynthesizeSpeech as any,
     overrides?.session ?? mockSession as any,
   );
 }

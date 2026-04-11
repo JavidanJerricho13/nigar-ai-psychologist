@@ -9,6 +9,7 @@ import { OpenAiTtsAdapter } from './infrastructure/adapters/openai-tts.adapter';
 import { FfmpegService } from './infrastructure/conversion/ffmpeg.service';
 import { AudioProducer } from './infrastructure/queues/audio.producer';
 import { TranscriptionConsumer } from './infrastructure/queues/audio.consumer';
+import { SynthesisConsumer } from './infrastructure/queues/synthesis.consumer';
 import { TranscribeVoiceUseCase } from './domain/use-cases/transcribe-voice.use-case';
 import { SynthesizeSpeechUseCase } from './domain/use-cases/synthesize-speech.use-case';
 import { TRANSCRIPTION_QUEUE, SYNTHESIS_QUEUE } from './infrastructure/queues/audio.types';
@@ -47,6 +48,7 @@ import { TRANSCRIPTION_QUEUE, SYNTHESIS_QUEUE } from './infrastructure/queues/au
     // Queues
     AudioProducer,
     TranscriptionConsumer,
+    SynthesisConsumer,
 
     // Use cases
     TranscribeVoiceUseCase,

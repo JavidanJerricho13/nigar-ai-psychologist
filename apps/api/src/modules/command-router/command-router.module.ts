@@ -5,9 +5,10 @@ import { UserModule } from '../user/user.module';
 import { BillingModule } from '../billing/billing.module';
 import { ReferralModule } from '../referral/referral.module';
 import { ChatModule } from '../chat/chat.module';
+import { AudioModule } from '../audio/audio.module';
 
 @Module({
-  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule],
+  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule],
   providers: [CommandRouterService],
   exports: [CommandRouterService],
 })

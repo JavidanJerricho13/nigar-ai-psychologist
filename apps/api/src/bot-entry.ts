@@ -20,11 +20,17 @@ import { OnboardingModule } from './modules/onboarding/onboarding.module';
 import { UserModule } from './modules/user/user.module';
 import { CommandRouterModule } from './modules/command-router/command-router.module';
 import { ChatModule } from './modules/chat/chat.module';
-import { Bot, webhookCallback, BotError, GrammyError, HttpError } from 'grammy';
+import { AudioModule } from './modules/audio/audio.module';
+import { Bot, webhookCallback, BotError, GrammyError, HttpError, InputFile } from 'grammy';
 import { CommandRouterService } from './modules/command-router/command-router.service';
-import type { CommandRequest } from './modules/command-router/domain/command.interfaces';
+import type { CommandRequest, CommandResponse } from './modules/command-router/domain/command.interfaces';
+import { TranscribeVoiceUseCase } from './modules/audio/domain/use-cases/transcribe-voice.use-case';
+import { SynthesizeSpeechUseCase } from './modules/audio/domain/use-cases/synthesize-speech.use-case';
 import { InlineKeyboard } from 'grammy';
 import type { StepOutput } from '@nigar/shared-types';
+import * as https from 'https';
+import * as fs from 'fs';
+import * as os from 'os';
 
 // ===================== BOT CONFIG =====================
 
@@ -68,13 +74,18 @@ function renderStepOutput(output: StepOutput) {
     UserModule,
     CommandRouterModule,
     ChatModule,
+    AudioModule,
   ],
 })
 class BotEntryModule implements OnModuleInit {
   private readonly logger = new Logger('BotEntry');
   private bot!: Bot;
 
-  constructor(private readonly router: CommandRouterService) {}
+  constructor(
+    private readonly router: CommandRouterService,
+    private readonly transcribe: TranscribeVoiceUseCase,
+    private readonly synthesize: SynthesizeSpeechUseCase,
+  ) {}
 
   async onModuleInit() {
     const token = loadBotToken();
@@ -127,12 +138,7 @@ class BotEntryModule implements OnModuleInit {
 
       try {
         const response = await this.router.dispatch(request);
-        const rendered = renderStepOutput(response.output);
-
-        if (rendered.audioUrl) {
-          try { await ctx.replyWithVoice(rendered.audioUrl); } catch {}
-        }
-        await ctx.reply(rendered.text, { reply_markup: rendered.keyboard });
+        await this.sendResponse(ctx, response);
       } catch (err) {
         this.logger.error(`Handler error: ${(err as Error).message}`);
         await ctx.reply('⚠️ Xəta baş verdi. Yenidən cəhd edin.');
@@ -165,7 +171,7 @@ class BotEntryModule implements OnModuleInit {
       }
     });
 
-    // Voice messages
+    // Voice messages — STT → Chat → optional TTS
     this.bot.on('message:voice', async (ctx) => {
       const from = ctx.from;
       if (!from) return;
@@ -173,25 +179,96 @@ class BotEntryModule implements OnModuleInit {
 
       await ctx.replyWithChatAction('record_voice');
 
-      const request: CommandRequest = {
-        userId: telegramId,
-        telegramId,
-        command: '',
-        payload: ctx.message.voice.file_id,
-        userInput: { type: 'voice', value: ctx.message.voice.file_id },
-      };
+      let tempOggPath: string | undefined;
 
       try {
+        // 1. Download OGG from Telegram
+        const voice = ctx.message.voice;
+        const file = await this.bot.api.getFile(voice.file_id);
+        if (!file.file_path) throw new Error('No file_path from Telegram');
+
+        const url = `https://api.telegram.org/file/bot${this.bot.token}/${file.file_path}`;
+        const tempDir = path.join(os.tmpdir(), 'nigar-voice');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+        tempOggPath = path.join(tempDir, `${Date.now()}.ogg`);
+
+        await new Promise<void>((resolve, reject) => {
+          const ws = fs.createWriteStream(tempOggPath!);
+          https.get(url, (res) => {
+            res.pipe(ws);
+            ws.on('finish', () => { ws.close(); resolve(); });
+          }).on('error', reject);
+        });
+
+        this.logger.log(`Voice downloaded: ${tempOggPath} (${voice.duration}s)`);
+
+        // 2. STT — transcribe OGG to text
+        await ctx.replyWithChatAction('typing');
+        const sttResult = await this.transcribe.execute({
+          filePath: tempOggPath,
+          userId: telegramId,
+        });
+
+        this.logger.log(`STT result: "${sttResult.text.slice(0, 50)}..."`);
+
+        if (!sttResult.text.trim()) {
+          await ctx.reply('🤔 Səs mesajını anlaya bilmədim. Zəhmət olmasa daha aydın danışın.');
+          return;
+        }
+
+        // 3. Route transcribed text through CommandRouter as a text message
+        const request: CommandRequest = {
+          userId: telegramId,
+          telegramId,
+          command: sttResult.text,
+          payload: sttResult.text,
+          userInput: { type: 'text', value: sttResult.text },
+        };
+
         const response = await this.router.dispatch(request);
-        const rendered = renderStepOutput(response.output);
-        await ctx.reply(rendered.text, { reply_markup: rendered.keyboard });
+
+        // 4. Send response (voice + text based on meta)
+        await this.sendResponse(ctx, response);
       } catch (err) {
         this.logger.error(`Voice error: ${(err as Error).message}`);
-        await ctx.reply('⚠️ Səs mesajını emal edə bilmədim.');
+        await ctx.reply('⚠️ Səs mesajını emal edə bilmədim. Zəhmət olmasa mətn yazın.');
+      } finally {
+        if (tempOggPath && fs.existsSync(tempOggPath)) {
+          try { fs.unlinkSync(tempOggPath); } catch {}
+        }
       }
     });
 
     this.logger.log('All handlers registered');
+  }
+
+  /**
+   * Send a CommandResponse back to Telegram.
+   * Handles: text, inline keyboard, voice (TTS), and voice+text.
+   */
+  private async sendResponse(ctx: any, response: CommandResponse): Promise<void> {
+    const rendered = renderStepOutput(response.output);
+
+    // Check if we should generate voice (from meta.audioBuffer or TTS)
+    const audioBuffer = response.meta?.audioBuffer as Buffer | undefined;
+    const shouldSendVoice = !!audioBuffer;
+
+    // If audio buffer exists (from TTS in handleChat), send as voice
+    if (shouldSendVoice && audioBuffer) {
+      try {
+        await ctx.replyWithVoice(new InputFile(audioBuffer, 'response.ogg'));
+      } catch (err: any) {
+        this.logger.error(`Voice reply failed: ${err.message}`);
+      }
+    }
+
+    // Send static audio URL (e.g., onboarding voice demo)
+    if (rendered.audioUrl && !shouldSendVoice) {
+      try { await ctx.replyWithVoice(rendered.audioUrl); } catch {}
+    }
+
+    // Always send text (unless voice-only and we already sent voice)
+    await ctx.reply(rendered.text, { reply_markup: rendered.keyboard });
   }
 
   private setupErrorHandler() {

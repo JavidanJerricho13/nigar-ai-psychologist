@@ -12,6 +12,7 @@ import { GetBalanceUseCase } from '../billing/domain/use-cases/get-balance.use-c
 import { GetReferralInfoUseCase } from '../referral/domain/use-cases/get-referral-info.use-case';
 import { ApplyReferralUseCase } from '../referral/domain/use-cases/apply-referral.use-case';
 import { SendMessageUseCase } from '../chat/domain/use-cases/send-message.use-case';
+import { SynthesizeSpeechUseCase } from '../audio/domain/use-cases/synthesize-speech.use-case';
 import { SessionService } from '../../shared/redis/session.service';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
@@ -31,6 +32,7 @@ export class CommandRouterService {
     private readonly getReferralInfo: GetReferralInfoUseCase,
     private readonly applyReferral: ApplyReferralUseCase,
     private readonly sendMessage: SendMessageUseCase,
+    private readonly synthesizeSpeech: SynthesizeSpeechUseCase,
     private readonly session: SessionService,
   ) {}
 
@@ -361,6 +363,31 @@ export class CommandRouterService {
       },
     });
 
+    // TTS: generate voice if user prefers voice or voice+text
+    const responseFormat = full?.settings?.responseFormat as ResponseFormat | undefined;
+    let audioBuffer: Buffer | undefined;
+
+    if (
+      responseFormat === ResponseFormat.VOICE ||
+      responseFormat === ResponseFormat.VOICE_AND_TEXT
+    ) {
+      try {
+        const ttsResult = await this.synthesizeSpeech.execute({
+          text: result.reply,
+          userId,
+        });
+        audioBuffer = ttsResult.buffer;
+        // Cleanup temp file after reading buffer
+        this.synthesizeSpeech.cleanup(ttsResult.oggPath);
+        this.logger.log(
+          `TTS generated: ${ttsResult.durationSeconds}s, ${ttsResult.creditsRemaining} credits left`,
+        );
+      } catch (err) {
+        this.logger.warn(`TTS failed (falling back to text): ${(err as Error).message}`);
+        // Non-fatal — fall back to text-only
+      }
+    }
+
     return {
       output: { text: result.reply, inputType: 'text' },
       isOnboarding: false,
@@ -370,6 +397,7 @@ export class CommandRouterService {
         provider: result.provider,
         model: result.model,
         isCrisis: result.isCrisis,
+        audioBuffer,
       },
     };
   }
