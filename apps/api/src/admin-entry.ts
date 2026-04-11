@@ -14,20 +14,23 @@ dotenv.config();
 import express from 'express';
 import { PrismaClient } from '@nigar/prisma-client';
 
-// AdminJS v7 is pure ESM — must use dynamic import() from CommonJS
+// AdminJS v7 is pure ESM — tsc converts import() to require() under commonjs.
+// Use Function trick to preserve real dynamic import() at runtime.
+const dynamicImport = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<any>;
+
 let AdminJS: any;
 let AdminJSExpress: any;
 let getModelByName: any;
 const prisma = new PrismaClient();
 
 async function loadAdminJS() {
-  const adminjsModule = await import('adminjs');
-  AdminJS = adminjsModule.default;
+  const adminjsModule = await dynamicImport('adminjs');
+  AdminJS = adminjsModule.default ?? adminjsModule;
 
-  const expressModule = await import('@adminjs/express' as any);
+  const expressModule = await dynamicImport('@adminjs/express');
   AdminJSExpress = expressModule.default ?? expressModule;
 
-  const prismaModule = await import('@adminjs/prisma' as any);
+  const prismaModule = await dynamicImport('@adminjs/prisma');
   const { Database, Resource } = prismaModule;
   getModelByName = prismaModule.getModelByName;
 
