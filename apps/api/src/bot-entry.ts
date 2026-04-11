@@ -21,6 +21,7 @@ import { UserModule } from './modules/user/user.module';
 import { CommandRouterModule } from './modules/command-router/command-router.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { AudioModule } from './modules/audio/audio.module';
+import { BillingModule } from './modules/billing/billing.module';
 import { Bot, webhookCallback, BotError, GrammyError, HttpError, InputFile } from 'grammy';
 import { CommandRouterService } from './modules/command-router/command-router.service';
 import type { CommandRequest, CommandResponse } from './modules/command-router/domain/command.interfaces';
@@ -75,6 +76,7 @@ function renderStepOutput(output: StepOutput) {
     CommandRouterModule,
     ChatModule,
     AudioModule,
+    BillingModule,
   ],
 })
 class BotEntryModule implements OnModuleInit {
@@ -290,10 +292,15 @@ class BotEntryModule implements OnModuleInit {
 // ===================== BOOTSTRAP =====================
 
 async function bootstrap() {
-  const app = await NestFactory.create(BotEntryModule, { logger: ['log', 'error', 'warn'] });
-  // Trigger lifecycle hooks (onModuleInit → starts bot polling)
-  await app.init();
-  Logger.log('🧠 Bot process initialized and polling', 'Bootstrap');
+  const app = await NestFactory.create(BotEntryModule, {
+    logger: ['log', 'error', 'warn'],
+    rawBody: true, // Required for Stripe webhook signature verification
+  });
+
+  // Start HTTP server for webhooks (Stripe, health checks)
+  const port = process.env.API_PORT ?? 3000;
+  await app.listen(port);
+  Logger.log(`🧠 Bot process initialized — HTTP on :${port}, Telegram polling active`, 'Bootstrap');
 }
 
 bootstrap();
