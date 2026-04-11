@@ -1,46 +1,39 @@
 # Backoffice Implementation Roadmap (AdminJS)
 
-> Step-by-step plan to build a full Admin Panel using AdminJS + NestJS.
+> Step-by-step plan to build a full Admin Panel using AdminJS v7 + Express.
 > Based on all 40+ metrics defined in BACKOFFICE_ARCHITECTURE.md.
-> No external tools — everything runs inside the existing monorepo.
+> Admin runs as **isolated ESM process** in `apps/admin/` (separate from bot).
 
 ---
 
-## Phase 1: AdminJS Setup & Core CRUD (Day 1)
+## Phase 1: AdminJS Setup & Core CRUD ✅ COMPLETED
 
-**Goal:** Working admin panel at `/admin` with auto-generated CRUD for all 9 tables.
+**Implemented in:** `apps/admin/` (standalone ESM workspace)
 
-- [ ] **1.1** Install dependencies
-  ```bash
-  pnpm --filter @nigar/api add adminjs @adminjs/nestjs @adminjs/prisma @adminjs/express express-session express-formidable
-  ```
-- [ ] **1.2** Create `apps/api/src/admin/admin.module.ts`
-  - Import AdminJS with Prisma adapter
-  - Register all 9 Prisma models as AdminJS resources
-  - Mount at `/admin` route
-- [ ] **1.3** Configure admin authentication
-  ```env
-  ADMIN_EMAIL=admin@nigar.ai
-  ADMIN_PASSWORD=your_secure_password
-  ```
-  - Cookie-based session auth (express-session)
-  - Login page at `/admin/login`
-- [ ] **1.4** Register resources with display configuration:
-  - **Users** — list: telegramId, isActive, createdAt | actions: show, ban/unban
-  - **UserProfiles** — list: name, gender, age, onboardingCompleted
-  - **UserSettings** — list: activeRole, responseFormat, nigarBlackRudenessEnabled
-  - **Credits** — list: balance, freeVoiceRemaining, totalPurchased, totalSpent
-  - **Conversations** — list: roleUsed, messageCount, startedAt
-  - **Messages** — list: role, llmProvider, tokensUsed, createdAt (content hidden — encrypted)
-  - **Transactions** — list: type, amount, description, createdAt
-  - **Referrals** — list: referrerId, referredId, bonusCredited, createdAt
-  - **OnboardingStates** — list: currentStep, privacyAccepted, completedAt
-- [ ] **1.5** Enable CSV/Excel export for key resources:
-  - Users — export for investor reports (telegramId, createdAt, isActive)
-  - Transactions — export for accounting (type, amount, description, createdAt)
-  - CrisisEvents — export for safety audits (userId, severity, keywords, createdAt)
-  - Enable via AdminJS resource option: `{ actions: { export: { isAccessible: true } } }`
-- [ ] **1.6** Test: navigate to `http://localhost:3000/admin`, login, browse all tables, test CSV export
+- [x] **1.1** Created `apps/admin/` workspace with `"type": "module"` (ESM)
+  - AdminJS v7 + @adminjs/express + @adminjs/prisma
+  - Separate tsconfig: `module: ESNext`, `moduleResolution: bundler`
+  - Fixed @tiptap peer deps via pnpm overrides in root package.json
+- [x] **1.2** Created `apps/admin/src/main.ts` — standalone Express server
+  - NOT inside NestJS — AdminJS v7 ESM is incompatible with CommonJS bot
+  - Runs on port 3001 (bot stays on 3000, zero coupling)
+- [x] **1.3** Cookie-based session auth via `buildAuthenticatedRouter()`
+  - Credentials from `ADMIN_EMAIL` + `ADMIN_PASSWORD` in `.env`
+  - Login page auto-generated at `/admin/login`
+- [x] **1.4** All 9 Prisma resources registered with configured columns:
+  - **Users** — telegramId, isActive, referralCode, createdAt (+ CSV export)
+  - **UserProfiles** — name, gender, age, onboardingCompleted
+  - **UserSettings** — activeRole, responseFormat, nigarBlackRudenessEnabled, language
+  - **Credits** — balance, freeVoiceRemaining, totalPurchased, totalSpent
+  - **Conversations** — roleUsed, messageCount, startedAt, endedAt
+  - **Messages** — role, llmProvider, tokensUsed, createdAt (**content hidden** — encrypted)
+  - **Transactions** — type, amount, description, createdAt (read-only + CSV export)
+  - **Referrals** — referrerId, referredId, bonusCredited, createdAt (read-only)
+  - **OnboardingStates** — currentStep, privacyAccepted, completedAt
+- [x] **1.5** CSV export enabled on Users and Transactions
+- [x] **1.6** Verified: `http://localhost:3001/admin` — login works, all tables browsable
+
+**Launch:** `node apps/admin/dist/main.js`
 
 ---
 
@@ -217,46 +210,43 @@ Charts library: `recharts` (React, works inside AdminJS custom components)
 ## File Structure
 
 ```
-apps/api/src/admin/
-├── admin.module.ts                — AdminJS NestJS module setup
-├── admin.auth.ts                  — Cookie session + email/password auth
-├── resources/
-│   ├── user.resource.ts           — Users: columns, ban/unban, grant credits, reset onboarding, CSV export
-│   ├── conversation.resource.ts   — Conversations + decrypted message viewer
-│   ├── credit.resource.ts         — Credits + balance adjustment
-│   ├── transaction.resource.ts    — Transactions (read-only, CSV export for accounting)
-│   ├── crisis.resource.ts         — CrisisEvents + mark handled, CSV export for safety audits
-│   └── index.ts                   — Export all resource configs
-├── components/
-│   ├── Dashboard.tsx              — KPI cards + revenue chart + new users chart
-│   ├── PersonaChart.tsx           — Persona pie + voice/text donut
-│   ├── OnboardingFunnel.tsx       — Step drop-off bar chart
-│   ├── ProviderStats.tsx          — Token usage by LLM provider
-│   ├── CrisisWidget.tsx           — Unhandled crisis alert list
-│   ├── RetentionTable.tsx         — Weekly cohort retention heatmap
-│   ├── TopReferrers.tsx           — Referrer leaderboard
-│   └── MessageViewer.tsx          — Decrypted conversation viewer (read-only)
-├── controllers/
-│   └── metrics.controller.ts      — GET /admin/api/metrics/* (9 endpoints, auth-guarded)
-└── services/
-    ├── analytics.service.ts       — All 40+ Prisma/SQL queries
-    └── analytics-cache.service.ts — Redis cache wrapper (5min/1h/24h TTLs) + @Cron recalculation
+apps/admin/                              ← Isolated ESM workspace (separate from bot)
+├── package.json                         — "type": "module", adminjs@7 deps
+├── tsconfig.json                        — module: ESNext, moduleResolution: bundler
+├── src/
+│   ├── main.ts                          — ✅ Express + AdminJS + auth + 9 resources
+│   ├── resources/                       — (Phase 3: custom action configs)
+│   │   ├── user.resource.ts             — ban/unban, grant credits, reset onboarding
+│   │   ├── conversation.resource.ts     — decrypted message viewer
+│   │   └── crisis.resource.ts           — mark handled
+│   ├── components/                      — (Phase 5-6: dashboard charts)
+│   │   ├── Dashboard.tsx                — KPI cards + revenue chart
+│   │   ├── PersonaChart.tsx             — Persona pie + voice/text donut
+│   │   ├── OnboardingFunnel.tsx         — Step drop-off bar chart
+│   │   ├── CrisisWidget.tsx             — Unhandled crisis alert list
+│   │   └── RetentionTable.tsx           — Weekly cohort retention heatmap
+│   ├── controllers/                     — (Phase 5: metrics API)
+│   │   └── metrics.controller.ts        — GET /admin/api/metrics/*
+│   └── services/                        — (Phase 4: analytics queries)
+│       ├── analytics.service.ts         — All 40+ Prisma/SQL queries
+│       └── analytics-cache.service.ts   — Redis cache wrapper + @Cron
+└── dist/                                — Compiled ESM output
 ```
 
 ---
 
 ## Timeline Summary
 
-| Phase | What | Duration | Priority |
-|-------|------|----------|----------|
-| 1 | AdminJS setup + CRUD for all 9 tables | 1 day | 🔴 Critical |
-| 2 | Schema additions (CrisisEvent, AdminAction) | 1 day | 🔴 Critical |
-| 3 | Custom actions (grant credits, ban, decrypt, reset) | 1 day | 🔴 Critical |
-| 4 | Analytics service (all 40+ metrics from ARCHITECTURE.md) | 1 day | 🟡 Important |
-| 5 | Dashboard API (9 endpoints) + components (7 charts) | 2 days | 🟡 Important |
-| 6 | Alerting & automation (cron + Telegram + email) | 1 day | 🟢 Nice-to-have |
+| Phase | What | Duration | Status |
+|-------|------|----------|--------|
+| 1 | AdminJS setup + CRUD for all 9 tables | 1 day | ✅ **DONE** |
+| 2 | Schema additions (CrisisEvent, AdminAction) | 1 day | ⬜ Next |
+| 3 | Custom actions (grant credits, ban, decrypt, reset) | 1 day | ⬜ |
+| 4 | Analytics service (all 40+ metrics) + Redis caching | 1 day | ⬜ |
+| 5 | Dashboard API (9 endpoints) + components (7 charts) | 2 days | ⬜ |
+| 6 | Alerting & automation (cron + Telegram + email) | 1 day | ⬜ |
 
-**Total: ~7 days to full AdminJS backoffice with 40+ metrics, CRUD, custom actions, and charts.**
+**Remaining: ~6 days. Phase 1 completed.**
 
 ---
 
@@ -264,12 +254,13 @@ apps/api/src/admin/
 
 | Component | Choice |
 |-----------|--------|
-| Admin framework | AdminJS v7 + @adminjs/nestjs + @adminjs/prisma |
-| Auth | express-session + bcrypt (email/password from .env) |
-| Charts | recharts (React, inside AdminJS custom components) |
-| Metrics API | NestJS controller at `/admin/api/metrics/*` |
-| Alerting | @nestjs/schedule (cron) + grammY (Telegram) + nodemailer (email) |
-| Deployment | Same NestJS process, route `/admin`, port 3000 |
+| Admin framework | AdminJS v7 + @adminjs/express + @adminjs/prisma |
+| Runtime | Standalone Express process (ESM, `"type": "module"`) |
+| Auth | express-session + cookie auth (ADMIN_EMAIL/PASSWORD from .env) |
+| Charts | recharts (React, inside AdminJS custom components) — Phase 5 |
+| Metrics API | Express routes at `/admin/api/metrics/*` — Phase 5 |
+| Alerting | node-cron + grammY (Telegram) + nodemailer (email) — Phase 6 |
+| Deployment | Separate process on port 3001 (bot on 3000, zero coupling) |
 
 ---
 

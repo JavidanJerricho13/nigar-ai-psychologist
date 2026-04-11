@@ -183,78 +183,40 @@ model CrisisEvent {
 
 ---
 
-## 3. Backoffice Tech Stack Recommendation
+## 3. Backoffice Tech Stack — ✅ IMPLEMENTED
 
-### Option A: **Metabase** (Recommended for MVP) ⭐
-
-| Aspect | Detail |
-|--------|--------|
-| **Setup** | Docker image, connect to Supabase PostgreSQL directly |
-| **Time to value** | 1-2 hours to deploy, all SQL queries above work immediately |
-| **Cost** | Free (open-source), or Metabase Cloud $85/mo |
-| **Auth** | Built-in admin accounts (email/password), no Telegram integration needed |
-| **Pros** | Zero code, drag-and-drop dashboards, scheduled email reports, embeddable |
-| **Cons** | No write operations (can't ban users, adjust credits from UI) |
-
-**Deploy:**
-```yaml
-# docker-compose.admin.yml
-services:
-  metabase:
-    image: metabase/metabase:latest
-    ports: ["3030:3000"]
-    environment:
-      MB_DB_TYPE: postgres
-      MB_DB_CONNECTION_URI: ${DATABASE_URL}
-```
-
-### Option B: **AdminJS** (NestJS native)
+### Chosen: **AdminJS v7 (ESM) — Isolated Express Process**
 
 | Aspect | Detail |
 |--------|--------|
-| **Setup** | `@adminjs/nestjs` + `@adminjs/prisma` packages |
-| **Time to value** | 1-2 days — auto-generates CRUD from Prisma schema |
-| **Auth** | Custom middleware (simple email/password, hardcoded admin list) |
-| **Pros** | Full CRUD (ban users, adjust credits, view conversations), NestJS-native |
-| **Cons** | No pre-built charts — need custom dashboard components |
+| **Location** | `apps/admin/` — separate workspace in monorepo |
+| **Runtime** | Standalone Express server (NOT inside NestJS/bot process) |
+| **Module system** | ESM (`"type": "module"`) — AdminJS v7 requires it |
+| **Port** | 3001 (bot runs on 3000 — fully isolated) |
+| **Auth** | Cookie-based session (ADMIN_EMAIL + ADMIN_PASSWORD from .env) |
+| **ORM** | @adminjs/prisma — direct PrismaClient, shared @nigar/prisma-client |
+| **Launch** | `node apps/admin/dist/main.js` |
 
-### Option C: **Custom Next.js + Tremor** (Full control)
+**Key architectural decision:** AdminJS v7 is pure ESM, bot is CommonJS. They CANNOT coexist in the same process. Solution: separate `apps/admin/` workspace with its own `package.json`, `tsconfig.json`, and `"type": "module"`.
 
-| Aspect | Detail |
-|--------|--------|
-| **Setup** | New `apps/admin/` in monorepo, calls API endpoints |
-| **Time to value** | 5-10 days for basic dashboard |
-| **Auth** | NextAuth.js with email/password or Google OAuth |
-| **Pros** | Full design control, custom actions (ban, refund, send message) |
-| **Cons** | Most development effort |
-
-### Recommendation: **Metabase now, AdminJS later**
-
-```
-Phase 1 (Now):    Metabase → analytics dashboards → 2 hours
-Phase 2 (Month 2): AdminJS → user management, credit ops → 2 days
-Phase 3 (Month 4): Custom Next.js → full backoffice if needed → 5-10 days
-```
+**Known fix applied:** `@tiptap/core` and `@tiptap/pm` overridden to `2.27.2` in root `package.json` to resolve AdminJS v7 internal peer dependency conflict.
 
 ---
 
-## 4. Admin Authentication
+## 4. Admin Authentication — ✅ IMPLEMENTED
 
-| Approach | For Metabase | For AdminJS/Custom |
-|----------|-------------|-------------------|
-| **Auth method** | Built-in email/password | Hardcoded admin list in .env |
-| **Implementation** | `ADMIN_EMAILS=admin@nigar.ai` | Guard checks against env list |
-| **2FA** | Metabase supports TOTP | Add `speakeasy` package |
-| **Audit log** | Built-in query log | Create `AdminAction` table |
+| Aspect | Implementation |
+|--------|---------------|
+| **Auth method** | Cookie-based session via `@adminjs/express` `buildAuthenticatedRouter()` |
+| **Credentials** | `ADMIN_EMAIL` + `ADMIN_PASSWORD` from `.env` |
+| **Session secret** | Uses `ENCRYPTION_KEY` from `.env` |
+| **Login page** | Auto-generated at `/admin/login` by AdminJS |
+| **Cookie name** | `nigar-admin` |
 
-**Minimal AdminJS auth guard:**
-```typescript
-// No Telegram auth — separate admin credentials
-const ADMIN_CREDENTIALS = {
-  email: process.env.ADMIN_EMAIL,
-  password: process.env.ADMIN_PASSWORD_HASH, // bcrypt
-};
-```
+**Future enhancements (not yet implemented):**
+- 2FA via `speakeasy` package
+- `AdminAction` audit log table
+- Multiple admin accounts
 
 ---
 
