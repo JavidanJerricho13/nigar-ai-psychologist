@@ -29,8 +29,11 @@ import { AnalyticsService } from './services/analytics.service.js';
 AdminJS.registerAdapter({ Database, Resource });
 
 // Component loader for custom dashboard
+// Path must be absolute — AdminJS resolves relative to CWD, not module location
 const componentLoader = new ComponentLoader();
-const DashboardComponent = componentLoader.add('Dashboard', './components/Dashboard');
+// __dirname at runtime = apps/admin/dist/ → need to go to apps/admin/src/components/
+const srcDir = path.resolve(__dirname, '../src');
+const DashboardComponent = componentLoader.add('Dashboard', path.join(srcDir, 'components/Dashboard'));
 
 const prisma = new PrismaClient();
 
