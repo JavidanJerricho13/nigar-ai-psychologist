@@ -1,5 +1,12 @@
-import { PrismaClient, Prisma } from '@nigar/prisma-client';
+import { PrismaClient } from '@nigar/prisma-client';
 import { AnalyticsCacheService } from './analytics-cache.service.js';
+
+/** Convert BigInt values to Number in raw SQL results */
+function serializeBigInt(obj: any): any {
+  return JSON.parse(JSON.stringify(obj, (_key, value) =>
+    typeof value === 'bigint' ? Number(value) : value
+  ));
+}
 
 // Cache TTLs
 const TTL = {
@@ -67,15 +74,15 @@ export class AnalyticsService {
   /** F2: Revenue by period (daily, last N days) */
   async getRevenueOverTime(days = 30) {
     return this.cache.getCached(`financial:revenue:${days}d`, TTL.MEDIUM, async () => {
-      const result = await this.prisma.$queryRaw<Array<{ day: string; revenue: number; count: bigint }>>`
+      const result = await this.prisma.$queryRaw`
         SELECT DATE_TRUNC('day', created_at)::date AS day,
                SUM(amount)::float AS revenue,
-               COUNT(*) AS count
+               COUNT(*)::int AS count
         FROM transactions
         WHERE type = 'purchase' AND created_at >= NOW() - ${days + ' days'}::interval
         GROUP BY 1 ORDER BY 1
       `;
-      return result.map((r) => ({ day: String(r.day), revenue: Number(r.revenue), count: Number(r.count) }));
+      return serializeBigInt(result);
     });
   }
 
@@ -109,9 +116,9 @@ export class AnalyticsService {
   /** F8: Top referrers with ROI */
   async getReferralRoi(limit = 20) {
     return this.cache.getCached('financial:referrers', TTL.HEAVY, async () => {
-      return this.prisma.$queryRaw<Array<{ telegram_id: string; referral_code: string; referrals: bigint; revenue: number }>>`
+      const result = await this.prisma.$queryRaw`
         SELECT u.telegram_id, u.referral_code,
-               COUNT(r.id) AS referrals,
+               COUNT(r.id)::int AS referrals,
                COALESCE(SUM(t.amount) FILTER (WHERE t.type = 'purchase'), 0)::float AS revenue
         FROM users u
         JOIN referrals r ON u.id = r.referrer_id
@@ -119,6 +126,7 @@ export class AnalyticsService {
         GROUP BY u.id ORDER BY referrals DESC
         LIMIT ${limit}
       `;
+      return serializeBigInt(result);
     });
   }
 
@@ -194,7 +202,7 @@ export class AnalyticsService {
   /** E10 + E11: Retention cohorts */
   async getRetentionCohorts() {
     return this.cache.getCached('engagement:retention', TTL.HEAVY, async () => {
-      return this.prisma.$queryRaw<Array<{ signup_week: string; cohort_size: bigint; retained_w1: bigint; retained_w4: bigint }>>`
+      const result = await this.prisma.$queryRaw`
         WITH cohort AS (
           SELECT id, DATE_TRUNC('week', created_at) AS signup_week FROM users
         ),
@@ -202,12 +210,13 @@ export class AnalyticsService {
           SELECT user_id, DATE_TRUNC('week', started_at) AS active_week FROM conversations
         )
         SELECT c.signup_week::date::text AS signup_week,
-               COUNT(DISTINCT c.id) AS cohort_size,
-               COUNT(DISTINCT CASE WHEN a.active_week = c.signup_week + INTERVAL '1 week' THEN c.id END) AS retained_w1,
-               COUNT(DISTINCT CASE WHEN a.active_week = c.signup_week + INTERVAL '4 weeks' THEN c.id END) AS retained_w4
+               COUNT(DISTINCT c.id)::int AS cohort_size,
+               COUNT(DISTINCT CASE WHEN a.active_week = c.signup_week + INTERVAL '1 week' THEN c.id END)::int AS retained_w1,
+               COUNT(DISTINCT CASE WHEN a.active_week = c.signup_week + INTERVAL '4 weeks' THEN c.id END)::int AS retained_w4
         FROM cohort c LEFT JOIN activity a ON c.id = a.user_id
         GROUP BY 1 ORDER BY 1 DESC LIMIT 12
       `;
+      return serializeBigInt(result);
     });
   }
 
@@ -216,7 +225,7 @@ export class AnalyticsService {
     return this.cache.getCached('engagement:demographics', TTL.HEAVY, async () => {
       const [genders, ageBuckets] = await Promise.all([
         this.prisma.userProfile.groupBy({ by: ['gender'], _count: true }),
-        this.prisma.$queryRaw<Array<{ bucket: string; count: bigint }>>`
+        this.prisma.$queryRaw`
           SELECT CASE
             WHEN age < 18 THEN '<18'
             WHEN age BETWEEN 18 AND 24 THEN '18-24'
@@ -224,14 +233,14 @@ export class AnalyticsService {
             WHEN age BETWEEN 35 AND 44 THEN '35-44'
             WHEN age >= 45 THEN '45+'
             ELSE 'unknown'
-          END AS bucket, COUNT(*) AS count
+          END AS bucket, COUNT(*)::int AS count
           FROM user_profiles WHERE age IS NOT NULL GROUP BY 1 ORDER BY 1
         `,
       ]);
 
       return {
         genders: genders.map((g) => ({ gender: g.gender, count: g._count })),
-        ageBuckets: ageBuckets.map((a) => ({ bucket: a.bucket, count: Number(a.count) })),
+        ageBuckets: serializeBigInt(ageBuckets).map((a: any) => ({ bucket: a.bucket, count: a.count })),
       };
     });
   }
