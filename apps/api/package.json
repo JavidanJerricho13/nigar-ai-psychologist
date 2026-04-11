@@ -16,6 +16,8 @@
     "test:cov": "jest --coverage --testPathPattern='src/'",
     "bot:dev": "tsc && node dist/bot-entry.js",
     "bot:start": "node dist/bot-entry.js",
+    "admin:dev": "tsc && node dist/admin-entry.js",
+    "admin:start": "node dist/admin-entry.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {

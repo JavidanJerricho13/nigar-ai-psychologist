@@ -22,7 +22,6 @@ import { CommandRouterModule } from './modules/command-router/command-router.mod
 import { ChatModule } from './modules/chat/chat.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { BillingModule } from './modules/billing/billing.module';
-import { AdminPanelModule } from './admin/admin.module';
 import { Bot, webhookCallback, BotError, GrammyError, HttpError, InputFile } from 'grammy';
 import { CommandRouterService } from './modules/command-router/command-router.service';
 import type { CommandRequest, CommandResponse } from './modules/command-router/domain/command.interfaces';
@@ -78,7 +77,6 @@ function renderStepOutput(output: StepOutput) {
     ChatModule,
     AudioModule,
     BillingModule,
-    AdminPanelModule,
   ],
 })
 class BotEntryModule implements OnModuleInit {
