@@ -16,6 +16,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: path.resolve(__dirname, '../../../.env') });
 dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
+import crypto from 'node:crypto';
 import express from 'express';
 import AdminJS from 'adminjs';
 import AdminJSExpress from '@adminjs/express';
@@ -26,6 +27,43 @@ import { PrismaClient } from '@nigar/prisma-client';
 AdminJS.registerAdapter({ Database, Resource });
 
 const prisma = new PrismaClient();
+
+// ===================== DECRYPTION =====================
+
+function decryptContent(encoded: string): string {
+  try {
+    const hexKey = process.env.ENCRYPTION_KEY ?? '';
+    const key = hexKey.length === 64
+      ? Buffer.from(hexKey, 'hex')
+      : crypto.createHash('sha256').update(hexKey).digest();
+
+    const buf = Buffer.from(encoded, 'base64');
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const ciphertext = buf.subarray(28);
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(tag);
+    return decipher.update(ciphertext, undefined, 'utf8') + decipher.final('utf8');
+  } catch {
+    return encoded; // Return raw if decryption fails (unencrypted or legacy data)
+  }
+}
+
+/** AdminJS after hook — decrypts content field on all records */
+function decryptHook(response: any) {
+  if (response.record?.params?.content) {
+    response.record.params.content = decryptContent(response.record.params.content);
+  }
+  if (response.records) {
+    for (const rec of response.records) {
+      if (rec.params?.content) {
+        rec.params.content = decryptContent(rec.params.content);
+      }
+    }
+  }
+  return response;
+}
 
 // ===================== RESOURCES =====================
 
@@ -74,11 +112,16 @@ function buildResources() {
     r('Conversation', ['roleUsed', 'messageCount', 'startedAt', 'endedAt'], {
       navigation: { name: '💬 Chats', icon: 'Chat' },
     }),
-    r('Message', ['role', 'llmProvider', 'tokensUsed', 'createdAt'], {
+    r('Message', ['role', 'content', 'llmProvider', 'tokensUsed', 'createdAt'], {
       properties: {
-        content: { isVisible: { list: false, show: false, edit: false, filter: false } },
+        content: {
+          isVisible: { list: true, show: true, edit: false, filter: false },
+          type: 'textarea',
+        },
       },
       actions: {
+        list: { after: [decryptHook] },
+        show: { after: [decryptHook] },
         new: { isAccessible: false },
         edit: { isAccessible: false },
         delete: { isAccessible: false },
