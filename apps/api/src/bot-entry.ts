@@ -5,7 +5,7 @@
  */
 import * as path from 'path';
 
-import { initSentry } from './common/sentry/sentry.init';
+import { initSentry, withSentryUser } from './common/sentry/sentry.init';
 initSentry();
 
 import { NestFactory } from '@nestjs/core';
@@ -22,6 +22,7 @@ import { CommandRouterModule } from './modules/command-router/command-router.mod
 import { ChatModule } from './modules/chat/chat.module';
 import { AudioModule } from './modules/audio/audio.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { AlertingModule } from './modules/alerting/alerting.module';
 import { Bot, webhookCallback, BotError, GrammyError, HttpError, InputFile } from 'grammy';
 import { CommandRouterService } from './modules/command-router/command-router.service';
 import type { CommandRequest, CommandResponse } from './modules/command-router/domain/command.interfaces';
@@ -77,6 +78,7 @@ function renderStepOutput(output: StepOutput) {
     ChatModule,
     AudioModule,
     BillingModule,
+    AlertingModule,
   ],
 })
 class BotEntryModule implements OnModuleInit {
@@ -139,7 +141,10 @@ class BotEntryModule implements OnModuleInit {
       await ctx.replyWithChatAction('typing');
 
       try {
-        const response = await this.router.dispatch(request);
+        const response = await withSentryUser(
+          { telegramId, transport: 'telegram', command: text.startsWith('/') ? text.split(/\s+/)[0] : 'chat' },
+          () => this.router.dispatch(request),
+        );
         await this.sendResponse(ctx, response);
       } catch (err) {
         this.logger.error(`Handler error: ${(err as Error).message}`);
@@ -164,7 +169,10 @@ class BotEntryModule implements OnModuleInit {
       await ctx.replyWithChatAction('typing');
 
       try {
-        const response = await this.router.dispatch(request);
+        const response = await withSentryUser(
+          { telegramId, transport: 'telegram', command: 'callback' },
+          () => this.router.dispatch(request),
+        );
         const rendered = renderStepOutput(response.output);
         await ctx.reply(rendered.text, { reply_markup: rendered.keyboard });
       } catch (err) {
@@ -227,7 +235,10 @@ class BotEntryModule implements OnModuleInit {
           userInput: { type: 'text', value: sttResult.text },
         };
 
-        const response = await this.router.dispatch(request);
+        const response = await withSentryUser(
+          { telegramId, transport: 'telegram', command: 'voice' },
+          () => this.router.dispatch(request),
+        );
 
         // 4. Send response (voice + text based on meta)
         await this.sendResponse(ctx, response);

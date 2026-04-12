@@ -16,3 +16,32 @@ export function initSentry(): void {
     sendDefaultPii: false,
   });
 }
+
+/**
+ * Run a function inside a Sentry scope tagged with the current user/transport.
+ * Any exception captured by Sentry within this scope (or thrown out of it) will
+ * carry user_id + tags so alert rules can route to the right channel.
+ *
+ * Safe no-op if Sentry is not initialized.
+ */
+export async function withSentryUser<T>(
+  ctx: { telegramId?: string; userId?: string; command?: string; transport?: string },
+  fn: () => Promise<T>,
+): Promise<T> {
+  return Sentry.withScope(async (scope) => {
+    if (ctx.telegramId || ctx.userId) {
+      scope.setUser({
+        id: ctx.userId ?? ctx.telegramId,
+        username: ctx.telegramId ? `tg:${ctx.telegramId}` : undefined,
+      });
+    }
+    if (ctx.transport) scope.setTag('transport', ctx.transport);
+    if (ctx.command) scope.setTag('command', ctx.command);
+    try {
+      return await fn();
+    } catch (err) {
+      Sentry.captureException(err);
+      throw err;
+    }
+  });
+}

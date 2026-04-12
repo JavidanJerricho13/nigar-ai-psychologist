@@ -24,6 +24,8 @@ import { Database, Resource, getModelByName } from '@adminjs/prisma';
 import { PrismaClient } from '@nigar/prisma-client';
 import { AnalyticsCacheService } from './services/analytics-cache.service.js';
 import { AnalyticsService } from './services/analytics.service.js';
+import { MailerService } from './services/mailer.service.js';
+import { WeeklyReportService } from './services/weekly-report.service.js';
 
 // Register Prisma adapter
 AdminJS.registerAdapter({ Database, Resource });
@@ -302,10 +304,34 @@ function buildResources() {
 
     // ===================== 🆘 Safety =====================
     r('CrisisEvent', ['severity', 'keywords', 'handled', 'createdAt'], {
+      // 6.5 — Highlight unhandled rows. AdminJS list view doesn't support per-row
+      // CSS, but we can rewrite the displayed severity value with a 🆘 URGENT prefix
+      // so unhandled events visually pop off the page.
+      properties: {
+        severity: {
+          isVisible: { list: true, show: true, edit: false, filter: true },
+        },
+      },
       actions: {
         export: { isAccessible: true },
         new: { isAccessible: false },
         delete: { isAccessible: false },
+        list: {
+          after: [
+            (response: any) => {
+              if (Array.isArray(response.records)) {
+                for (const rec of response.records) {
+                  const handled = rec.params?.handled;
+                  if (handled === false || handled === 'false') {
+                    const sev = rec.params.severity ?? 'unknown';
+                    rec.params.severity = `🆘 URGENT — ${sev}`;
+                  }
+                }
+              }
+              return response;
+            },
+          ],
+        },
 
         // ✅ Mark Crisis Handled
         markHandled: {
@@ -393,6 +419,8 @@ async function bootstrap() {
   const redisUrl = process.env.REDIS_URL ?? 'redis://localhost:6379';
   const cacheService = new AnalyticsCacheService(redisUrl);
   const analytics = new AnalyticsService(prisma, cacheService);
+  const mailer = new MailerService();
+  const weeklyReport = new WeeklyReportService(analytics, mailer);
 
   const app = express();
 
@@ -555,6 +583,23 @@ async function bootstrap() {
     try { res.json(await analytics.getDemographics()); }
     catch (err) { res.status(500).json({ error: (err as Error).message }); }
   });
+  // 6.2 — Manual trigger for the weekly report (verification / on-demand)
+  app.post('/admin/api/reports/weekly', async (req, res) => {
+    try {
+      const to = (req.query.to as string) ?? undefined;
+      const sent = await weeklyReport.runManually(to);
+      res.json({
+        sent,
+        mailerEnabled: (mailer as any).isEnabled ?? false,
+        message: sent
+          ? 'Weekly report sent'
+          : 'Mailer disabled or no recipient — see SMTP_* / REPORT_EMAIL_TO env vars',
+      });
+    } catch (err) {
+      res.status(500).json({ error: (err as Error).message });
+    }
+  });
+
   app.post('/admin/api/metrics/refresh', async (_req, res) => {
     try {
       await cacheService.invalidateAll();
@@ -634,6 +679,17 @@ async function bootstrap() {
       await analytics.getOnboardingFunnel();
       console.log('[Cron] Hourly refresh done');
     } catch (err) { console.error('[Cron] Hourly refresh failed:', (err as Error).message); }
+  });
+
+  // 6.2 — Weekly KPI report (every Monday at 10:00 server time)
+  cron.schedule('0 10 * * 1', async () => {
+    console.log('[Cron] Weekly KPI report — building & sending...');
+    try {
+      const sent = await weeklyReport.runManually();
+      console.log(`[Cron] Weekly KPI report ${sent ? 'sent' : 'skipped'}`);
+    } catch (err) {
+      console.error('[Cron] Weekly KPI report failed:', (err as Error).message);
+    }
   });
 
   // Daily 3 AM: heavy metrics (retention, demographics, referral ROI)

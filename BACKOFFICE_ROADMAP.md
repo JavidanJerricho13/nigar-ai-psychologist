@@ -199,11 +199,33 @@ Charts library: `recharts` (React, works inside AdminJS custom components)
 
 **Goal:** Automated notifications for critical events.
 
-- [ ] **6.1** NestJS `@Cron` job: daily crisis event summary → Telegram message to admin
-- [ ] **6.2** NestJS `@Cron` job: weekly KPI report → email
-- [ ] **6.3** Stripe webhook: failed payment alert → Telegram admin channel
-- [ ] **6.4** Sentry alert rules: error spike → email/Telegram
-- [ ] **6.5** AdminJS: highlight unhandled crisis events in red on dashboard
+- [x] **6.1** NestJS `@Cron` job: daily crisis event summary → Telegram message to admin
+      → `apps/api/src/modules/alerting/cron/crisis-summary.cron.ts` (EVERY_DAY_AT_9AM)
+- [x] **6.2** node-cron job in admin process: weekly KPI report → email (Mon 10:00)
+      → `apps/admin/src/services/weekly-report.service.ts` + nodemailer (`MailerService`)
+- [x] **6.3** Stripe webhook: `payment_intent.payment_failed` → Telegram admin alert
+      → `apps/api/src/modules/billing/infrastructure/controllers/stripe-webhook.controller.ts`
+- [x] **6.4** Sentry context: `withSentryUser({ telegramId, command, transport })` wraps every
+      bot dispatch so captured errors carry user_id + command tags. Configure Sentry alert
+      rules in the Sentry UI on top of these tags.
+- [x] **6.5** AdminJS: unhandled CrisisEvents are flagged with `🆘 URGENT — <severity>` in
+      the list view via an `actions.list.after` hook; the standalone `/admin/dashboard`
+      already shows a red banner when `safety.unhandled > 0`.
+
+**Manual verification endpoints (api process, port 3000):**
+
+```
+POST /internal/alerts/ping              x-debug-token: <ALERT_DEBUG_TOKEN>
+POST /internal/alerts/crisis-summary    x-debug-token: <ALERT_DEBUG_TOKEN>
+```
+
+Both refuse to operate (return 404) unless `ALERT_DEBUG_TOKEN` is set in the environment.
+
+**Manual verification endpoint (admin process, port 3001):**
+
+```
+POST /admin/api/reports/weekly?to=you@example.com
+```
 
 ---
 

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AlertingModule } from '../alerting/alerting.module';
 import { CREDIT_REPOSITORY } from './domain/ports/credit.repository.port';
 import { PrismaCreditRepository } from './infrastructure/adapters/prisma-credit.repository';
 import { GetBalanceUseCase } from './domain/use-cases/get-balance.use-case';
@@ -10,6 +11,7 @@ import { StripeAdapter } from './infrastructure/adapters/stripe.adapter';
 import { StripeWebhookController } from './infrastructure/controllers/stripe-webhook.controller';
 
 @Module({
+  imports: [AlertingModule],
   controllers: [StripeWebhookController],
   providers: [
     { provide: CREDIT_REPOSITORY, useClass: PrismaCreditRepository },

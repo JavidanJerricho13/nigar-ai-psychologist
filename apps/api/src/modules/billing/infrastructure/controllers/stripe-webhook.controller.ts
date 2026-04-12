@@ -10,6 +10,7 @@ import {
 import { Request, Response } from 'express';
 import { StripeAdapter } from '../adapters/stripe.adapter';
 import { AddCreditsUseCase } from '../../domain/use-cases/add-credits.use-case';
+import { TelegramAdminNotifierService } from '../../../alerting/services/telegram-admin-notifier.service';
 
 /**
  * Stripe webhook controller.
@@ -23,6 +24,7 @@ export class StripeWebhookController {
   constructor(
     private readonly stripeAdapter: StripeAdapter,
     private readonly addCredits: AddCreditsUseCase,
+    private readonly notifier: TelegramAdminNotifierService,
   ) {}
 
   @Post('stripe')
@@ -63,6 +65,26 @@ export class StripeWebhookController {
             `💳 Payment processed: ${credits} credits for user ${userId.slice(0, 8)} (session: ${session.id})`,
           );
         }
+      } else if (event.type === 'payment_intent.payment_failed') {
+        // 6.3 — alert admin on failed payment
+        const intent = event.data.object as any;
+        const reason: string =
+          intent.last_payment_error?.message ??
+          intent.last_payment_error?.code ??
+          'unknown';
+        const userId: string | undefined = intent.metadata?.userId;
+
+        this.logger.warn(
+          `Stripe payment failed: intent=${intent.id} user=${userId ?? '?'} reason=${reason}`,
+        );
+
+        await this.notifier.sendStripeFailure({
+          userId,
+          amountCents: intent.amount,
+          currency: intent.currency,
+          reason,
+          paymentIntentId: intent.id,
+        });
       }
 
       res.status(200).json({ received: true });

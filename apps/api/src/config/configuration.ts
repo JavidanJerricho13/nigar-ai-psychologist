@@ -21,6 +21,10 @@ const envSchema = z.object({
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   ADMIN_EMAIL: z.string().optional(),
   ADMIN_PASSWORD: z.string().optional(),
+  // Phase 6 — Alerting & Automation
+  ADMIN_TG_ID: z.string().optional(),
+  ALERT_DEBUG_TOKEN: z.string().optional(),
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
