@@ -245,12 +245,64 @@ docker logs nigar-bot -f
 
 ## Обновление кода
 
+### Вариант A — ручной (если нет CI/CD)
+
 ```bash
 cd ~/aipsychologist
+bash infra/deploy.sh
+```
+
+Или то же самое развёрнуто:
+```bash
 git pull
 docker compose -f docker-compose.prod.yml build api bot
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+### Вариант B — автодеплой через GitHub Actions
+
+Настраивается один раз за ~10 минут. Потом `git push` = авто-деплой.
+
+#### Шаг 1: Создать deploy-ключ SSH на VPS
+
+```bash
+# На VPS под пользователем nigar
+ssh-keygen -t ed25519 -f ~/.ssh/github_deploy -N "" -C "github-deploy"
+cat ~/.ssh/github_deploy.pub >> ~/.ssh/authorized_keys
+cat ~/.ssh/github_deploy   # скопируй ВЕСЬ приватный ключ (включая BEGIN/END)
+```
+
+#### Шаг 2: Добавить secrets в GitHub
+
+Репо → Settings → Secrets and variables → Actions → New repository secret:
+
+| Name | Value |
+|------|-------|
+| `VPS_HOST` | IP твоего VPS (например `168.119.xxx.xxx`) |
+| `VPS_USER` | `nigar` |
+| `VPS_SSH_KEY` | содержимое `~/.ssh/github_deploy` (приватный ключ целиком) |
+| `VPS_PORT` | `22` (опционально, по умолчанию 22) |
+
+#### Шаг 3: Убедиться что файл `.env` на VPS актуален
+
+Workflow **не копирует** `.env` — он должен быть вручную создан на VPS один раз (см. раздел 4).
+
+#### Шаг 4: Запуск
+
+Запушь любой коммит в `main` — через пару минут увидишь Actions → Deploy зелёным. На VPS обновится код, ребилд API + Bot, health check.
+
+```bash
+git push origin main
+# Открой https://github.com/YOUR_USER/aipsychologist/actions — увидишь прогресс
+```
+
+Если что-то пойдёт не так — в Actions будет лог, включая последние 50 строк `docker logs api`.
+
+#### Ручной триггер
+
+Repo → Actions → Deploy → "Run workflow" → выбери ветку → Run.
+
+Полезно если нужно передеплоить без изменений (например, после ротации секретов).
 
 ---
 
