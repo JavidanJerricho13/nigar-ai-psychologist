@@ -220,6 +220,12 @@ export class CommandRouterService {
       case 'memory':
         return this.handleMemory(userId);
 
+      case 'mood':
+        return this.handleMood(userId);
+
+      case 'journal':
+        return this.handleJournal(userId);
+
       case 'support':
         return this.handleSupport();
 
@@ -821,65 +827,143 @@ export class CommandRouterService {
   }
 
   private async handleProgress(userId: string): Promise<CommandResponse> {
-    const [conversations, messages, balance] = await Promise.all([
+    const [conversations, messages, balance, streak, moodTrend] = await Promise.all([
       this.prisma.conversation.count({ where: { userId } }),
-      this.prisma.message.count({
-        where: { conversation: { userId } },
-      }),
+      this.prisma.message.count({ where: { conversation: { userId } } }),
       this.getBalance.execute(userId),
+      this.streakService.getStreak(userId),
+      this.moodService.getMoodTrend(userId, 30),
     ]);
 
     const voiceUsed = 3 - balance.freeVoiceRemaining;
 
+    const parts: string[] = [
+      '📊 Sənin irəliləyişin:\n',
+      `💬 Söhbətlər: ${conversations}`,
+      `✉️ Mesajlar: ${messages}`,
+    ];
+
+    // Streak info
+    if (streak.totalSessions > 0) {
+      parts.push(`🔥 Streak: ${streak.currentStreak} gün ardıcıl`);
+      parts.push(`🏆 Ən uzun streak: ${streak.longestStreak} gün`);
+      parts.push(`📅 Cəmi sessiyalar: ${streak.totalSessions}`);
+    }
+
+    // Mood trend
+    if (moodTrend.totalEntries > 0) {
+      const directionEmoji = moodTrend.direction === 'improving' ? '📈' : moodTrend.direction === 'declining' ? '📉' : '➡️';
+      parts.push(`\n${directionEmoji} Əhval trendi: ${moodTrend.average}/10 (${moodTrend.direction === 'improving' ? 'yaxşılaşır' : moodTrend.direction === 'declining' ? 'pisləşir' : 'sabit'})`);
+    }
+
+    parts.push(`\n🎙 Səsli cavablar istifadə olunub: ${voiceUsed}`);
+    parts.push(`💰 Cari balans: ${balance.balance} kredit`);
+    parts.push(`🎁 Pulsuz səs qalıb: ${balance.freeVoiceRemaining}`);
+    parts.push('\n/mood — Əhval qrafiki\n/journal — Sessiya jurnalı\n/memory — Xatirələr');
+
+    return this.buildResponse({ text: parts.join('\n'), inputType: 'text' });
+  }
+
+  private async handleMemory(userId: string): Promise<CommandResponse> {
+    // Load long-term memory: last 5 session summaries + therapeutic profile
+    const [summaries, profile, streak] = await Promise.all([
+      this.summaryService.getRecentSummaries(userId, 5),
+      this.profileService.getOrCreate(userId),
+      this.streakService.getStreak(userId),
+    ]);
+
+    if (summaries.length === 0 && profile.concerns.length === 0) {
+      return this.buildResponse({
+        text: '🧠 Hələ heç bir uzunmüddətli xatirə yoxdur.\n\nBir neçə söhbətdən sonra Nigar səni daha yaxşı tanıyacaq!',
+        inputType: 'text',
+      });
+    }
+
+    const parts: string[] = ['🧠 Nigarın xatirələri:\n'];
+
+    // Session summaries
+    if (summaries.length > 0) {
+      parts.push('--- Son sessiyalar ---');
+      summaries.forEach((s, i) => {
+        const date = s.createdAt.toLocaleDateString('az-AZ', { day: 'numeric', month: 'short' });
+        const topics = s.topicsDiscussed.join(', ');
+        const mood = s.moodScore ? ` | Əhval: ${s.moodScore}/10` : '';
+        const summaryPreview = s.summary.length > 80 ? s.summary.slice(0, 80) + '...' : s.summary;
+        parts.push(`${i + 1}. [${date}] ${topics}${mood}\n   ${summaryPreview}`);
+      });
+    }
+
+    // Therapeutic profile
+    if (profile.concerns.length > 0 || profile.goals.length > 0) {
+      parts.push('\n--- Terapevtik profil ---');
+      if (profile.concerns.length > 0) parts.push(`Narahatlıqlar: ${profile.concerns.join(', ')}`);
+      if (profile.strengths.length > 0) parts.push(`Güclü tərəflər: ${profile.strengths.join(', ')}`);
+      if (profile.goals.length > 0) parts.push(`Hədəflər: ${profile.goals.join(', ')}`);
+      if (profile.progressNotes) parts.push(`Son qeyd: ${profile.progressNotes}`);
+    }
+
+    // Streak
+    if (streak.totalSessions > 0) {
+      parts.push(`\nStreak: ${streak.currentStreak} gün | Ən uzun: ${streak.longestStreak} gün | Cəmi: ${streak.totalSessions} sessiya`);
+    }
+
+    parts.push('\n/mood — Əhval qrafiki\n/journal — Sessiya jurnalı\n/progress — İrəliləyiş');
+
+    return this.buildResponse({ text: parts.join('\n'), inputType: 'text' });
+  }
+
+  private async handleMood(userId: string): Promise<CommandResponse> {
+    const trend = await this.moodService.getMoodTrend(userId, 14);
+
+    if (trend.totalEntries === 0) {
+      return this.buildResponse({
+        text: '📊 Hələ əhval məlumatı yoxdur.\n\nBir neçə söhbətdən sonra əhval qrafikin burada görünəcək!',
+        inputType: 'text',
+      });
+    }
+
+    const chart = this.moodService.buildMoodChart(
+      trend.recentScores.map((s) => ({
+        score: s.score,
+        dominantEmotion: s.emotion,
+        createdAt: s.date,
+      })),
+    );
+
+    const directionEmoji = trend.direction === 'improving' ? '📈' : trend.direction === 'declining' ? '📉' : '➡️';
+    const directionLabel = trend.direction === 'improving' ? 'Yaxşılaşır' : trend.direction === 'declining' ? 'Pisləşir' : 'Sabit';
+
     return this.buildResponse({
       text:
-        `📊 Sənin irəliləyişin:\n\n` +
-        `💬 Söhbətlər: ${conversations}\n` +
-        `✉️ Mesajlar: ${messages}\n` +
-        `🎙 Səsli cavablar istifadə olunub: ${voiceUsed}\n` +
-        `💰 Cari balans: ${balance.balance} kredit\n` +
-        `🎁 Pulsuz səs qalıb: ${balance.freeVoiceRemaining}\n\n` +
-        `/balance — Ətraflı balans\n` +
-        `/credits — Əməliyyat tarixçəsi`,
+        `📊 Son 14 günün əhval-ruhiyyən:\n\n` +
+        `${chart}\n\n` +
+        `${directionEmoji} Trend: ${directionLabel}\n` +
+        `Orta əhval: ${trend.average}/10\n` +
+        `Cəmi qeyd: ${trend.totalEntries}`,
       inputType: 'text',
     });
   }
 
-  private async handleMemory(userId: string): Promise<CommandResponse> {
-    // Find the most recent conversation for this user
-    const lastConversation = await this.prisma.conversation.findFirst({
-      where: { userId },
-      orderBy: { startedAt: 'desc' },
-      select: { id: true },
-    });
+  private async handleJournal(userId: string): Promise<CommandResponse> {
+    const summaries = await this.summaryService.getRecentSummaries(userId, 10);
 
-    if (!lastConversation) {
+    if (summaries.length === 0) {
       return this.buildResponse({
-        text: '🧠 Hələ heç bir söhbət konteksti yoxdur.\n\nMənə yazın — yeni söhbətə başlayaq!',
+        text: '📖 Sessiya jurnalı boşdur.\n\nBir neçə söhbətdən sonra burada sessiya xülasələrin görünəcək!',
         inputType: 'text',
       });
     }
 
-    const context = await this.session.getConversationContext(lastConversation.id, 10);
-
-    if (context.length === 0) {
-      return this.buildResponse({
-        text: '🧠 Söhbət konteksti boşdur (vaxt keçib və ya təmizlənib).\n\nYeni mövzuya başlayaq!',
-        inputType: 'text',
-      });
-    }
-
-    const lines = context.map((msg) => {
-      const icon = msg.role === 'user' ? '👤' : '🤖';
-      const text = msg.content.length > 100 ? msg.content.slice(0, 100) + '...' : msg.content;
-      return `${icon} ${text}`;
+    const lines = summaries.map((s, i) => {
+      const date = s.createdAt.toLocaleDateString('az-AZ', { day: 'numeric', month: 'short' });
+      const topics = s.topicsDiscussed.join(', ');
+      const mood = s.moodScore ? `${s.moodScore}/10` : '—';
+      const emotion = s.dominantEmotion ?? '';
+      return `${i + 1}. [${date}] ${topics} | ${mood} ${emotion}\n   ${s.summary}`;
     });
 
     return this.buildResponse({
-      text:
-        `🧠 Nigarın xatirələri (son ${context.length} mesaj):\n\n` +
-        lines.join('\n\n') +
-        `\n\n/clear_chat — Konteksti təmizlə`,
+      text: `📖 Sessiya jurnalı (son ${summaries.length}):\n\n${lines.join('\n\n')}`,
       inputType: 'text',
     });
   }
