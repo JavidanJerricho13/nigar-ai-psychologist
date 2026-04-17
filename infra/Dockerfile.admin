@@ -1,0 +1,52 @@
+# ============================================
+# Multi-stage Dockerfile for Nigar Admin Panel
+# ============================================
+
+# Stage 1: Install dependencies
+FROM node:20-slim AS deps
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
+COPY apps/admin/package.json apps/admin/
+COPY packages/prisma-client/package.json packages/prisma-client/
+COPY packages/shared-types/package.json packages/shared-types/
+COPY packages/tsconfig/package.json packages/tsconfig/
+COPY packages/eslint-config/package.json packages/eslint-config/
+
+RUN pnpm install --frozen-lockfile --prod=false
+
+# Stage 2: Build
+FROM node:20-slim AS builder
+WORKDIR /app
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+RUN pnpm db:generate
+RUN pnpm --filter @nigar/admin build
+
+# Stage 3: Runtime
+FROM node:20-slim AS runner
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /app/apps/admin/dist ./apps/admin/dist
+COPY --from=builder /app/apps/admin/package.json ./apps/admin/
+COPY --from=builder /app/packages/prisma-client/dist ./packages/prisma-client/dist
+COPY --from=builder /app/packages/prisma-client/package.json ./packages/prisma-client/
+COPY --from=builder /app/packages/prisma-client/prisma ./packages/prisma-client/prisma
+COPY --from=builder /app/packages/shared-types/dist ./packages/shared-types/dist
+COPY --from=builder /app/packages/shared-types/package.json ./packages/shared-types/
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package.json ./
+
+ENV NODE_ENV=production
+ENV ADMIN_PORT=3001
+EXPOSE 3001
+
+CMD ["node", "apps/admin/dist/main.js"]

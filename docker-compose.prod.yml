@@ -21,8 +21,11 @@ services:
       - nigar-net
     depends_on:
       - api
+      - admin
     environment:
       - DOMAIN=${DOMAIN}
+      - ADMIN_DOMAIN=${ADMIN_DOMAIN}
+      - ADMIN_BASIC_AUTH_HASH=${ADMIN_BASIC_AUTH_HASH}
 
   api:
     build:
@@ -64,6 +67,22 @@ services:
     depends_on:
       - redis
       - api
+
+  admin:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.admin
+    container_name: nigar-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - ADMIN_PORT=3001
+    networks:
+      - nigar-net
+    depends_on:
+      - redis
 
   redis:
     image: redis:7-alpine

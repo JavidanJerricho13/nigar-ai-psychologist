@@ -210,6 +210,90 @@ docker logs nigar-bot -f
 
 ---
 
+## 4.5 Настройка Admin Panel
+
+Админка работает на **отдельном сабдомене** (`admin.your-domain.com`) с двойной защитой:
+1. Caddy HTTP Basic Auth (первый слой)
+2. AdminJS email/password session (второй слой)
+
+### Шаг 1: Добавить DNS-запись для сабдомена
+
+У регистратора домена:
+- Host: `admin` → Value: `IP твоего VPS` (тот же что и `@`)
+- TTL: 300
+
+Проверь:
+```bash
+dig +short admin.your-domain.com
+# Должен вернуть IP VPS
+```
+
+### Шаг 2: Сгенерировать пароль для Basic Auth
+
+```bash
+# На VPS
+docker run --rm caddy:2-alpine caddy hash-password --plaintext 'придумай_сложный_пароль_здесь'
+# Выведет строку вроде: $2a$14$abc...xyz
+```
+
+Скопируй в `.env`:
+```bash
+nano .env
+# ADMIN_DOMAIN=admin.your-domain.com
+# ADMIN_BASIC_AUTH_HASH=$2a$14$abc...xyz    # ← вставь сюда
+# ADMIN_EMAIL=your-email@example.com         # логин в AdminJS
+# ADMIN_PASSWORD=another_strong_password     # пароль в AdminJS (≥16 символов)
+```
+
+⚠️ Basic Auth пароль и AdminJS пароль — **разные**. Нужны оба.
+
+### Шаг 3: Передеплой
+
+```bash
+docker compose -f docker-compose.prod.yml up -d admin caddy
+```
+
+Caddy автоматически выдаст SSL-сертификат для `admin.your-domain.com`.
+
+### Шаг 4: Доступ
+
+Открой `https://admin.your-domain.com/admin`:
+
+1. Браузер спросит Basic Auth → логин: `admin`, пароль: тот что хешировал в шаге 2
+2. Потом AdminJS форма → email + password из `.env`
+
+### Что можно делать в админке
+
+- `/admin/dashboard` — KPI метрики (DAU, MAU, revenue, onboarding funnel)
+- Управление пользователями: gift credits, ban, reset onboarding
+- Просмотр сообщений (расшифровываются автоматически)
+- Crisis events (пометить как handled)
+- Audit log всех админских действий
+- Manual trigger недельного KPI отчёта на email
+
+### Безопасность
+
+Чтобы сделать ещё безопаснее (рекомендуется):
+
+**IP whitelist** (если у тебя статический IP):
+```
+# В Caddyfile, блок admin:
+{$ADMIN_DOMAIN} {
+    @allowed {
+        remote_ip YOUR_HOME_IP/32 YOUR_OFFICE_IP/32
+    }
+    handle @allowed {
+        basic_auth * { admin {$ADMIN_BASIC_AUTH_HASH} }
+        reverse_proxy admin:3001
+    }
+    handle {
+        respond "Forbidden" 403
+    }
+}
+```
+
+---
+
 ## 5. Настройка Stripe webhook
 
 1. Зайди в Stripe Dashboard → Developers → Webhooks → Add endpoint
