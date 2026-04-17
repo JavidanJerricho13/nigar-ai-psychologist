@@ -578,6 +578,11 @@ export class CommandRouterService {
       this.enqueuePreviousSessionSummary(userId, result.conversationId).catch(() => {});
     }
 
+    // Schedule crisis follow-up if crisis detected
+    if (result.isCrisis) {
+      this.outreachProducer.scheduleCrisisFollowUp(userId).catch(() => {});
+    }
+
     // TTS: generate voice if user prefers voice or voice+text
     const responseFormat = full?.settings?.responseFormat as ResponseFormat | undefined;
     let audioBuffer: Buffer | undefined;
