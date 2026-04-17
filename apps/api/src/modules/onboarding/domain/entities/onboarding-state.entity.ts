@@ -17,7 +17,7 @@ export class OnboardingState {
     completedAt?: Date | null;
   }) {
     this.userId = params.userId;
-    this.currentStep = params.currentStep ?? 'greeting';
+    this.currentStep = params.currentStep ?? 'mood_check';
     this.stepData = params.stepData ?? {};
     this.completedSteps = params.completedSteps ?? [];
     this.privacyAccepted = params.privacyAccepted ?? false;

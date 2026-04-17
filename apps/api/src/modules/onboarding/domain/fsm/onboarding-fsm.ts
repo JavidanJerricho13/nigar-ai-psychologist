@@ -58,8 +58,11 @@ export class OnboardingFsm {
     // (nextStep may read stepData for conditional branching)
     state.stepData = { ...state.stepData, ...extracted };
 
-    // Handle privacy acceptance
-    if (currentStep.id === 'privacy_policy' && extracted.privacyAccepted) {
+    // Handle privacy acceptance (both old and new flow step IDs)
+    if (
+      (currentStep.id === 'privacy_policy' || currentStep.id === 'privacy_quick') &&
+      extracted.privacyAccepted
+    ) {
       state.acceptPrivacy();
     }
 
@@ -101,30 +104,27 @@ export class OnboardingFsm {
   private buildCompletionOutput(state: OnboardingState): StepOutput {
     const d = state.stepData;
     const name = (d.name as string) || 'Dostum';
-    const gender = (d.gender as string) || '—';
-    const age = (d.age as string) || '—';
-    const bio = (d.bio as string) || 'Hələ doldurulmayıb';
-    const format = (d.responseFormat as string) || 'text';
+    const mood = d.initialMood as string | undefined;
 
-    const genderLabel =
-      gender === 'male' ? 'Kişi' : gender === 'female' ? 'Qadın' : '—';
-    const formatLabel =
-      format === 'voice'
-        ? 'Səs'
-        : format === 'voice_and_text'
-          ? 'Səs + Mətn'
-          : 'Mətn';
+    // Empathy-driven completion message based on initial mood
+    let empathyCloser: string;
+    switch (mood) {
+      case 'bad':
+      case 'help':
+        empathyCloser = `${name}, mən buradayam. Nə narahat edir? Danışaq 💛`;
+        break;
+      case 'okay':
+        empathyCloser = `${name}, gəl birlikdə baxaq nələri yaxşılaşdıra bilərik 💛`;
+        break;
+      default:
+        empathyCloser = `${name}, tanış olduğumuza şadam! Nə haqqında danışmaq istəyirsən? 💛`;
+    }
 
     return {
       text:
-        `✅ Tanışlıq tamamlandı!\n\n` +
-        `👤 Ad: ${name}\n` +
-        `⚧ Cins: ${genderLabel}\n` +
-        `🎂 Yaş: ${age}\n` +
-        `📝 Haqqında: ${bio.length > 100 ? bio.slice(0, 100) + '...' : bio}\n` +
-        `🎙 Format: ${formatLabel}\n\n` +
-        `İstədiyin zaman /info ilə profilini dəyişə bilərsən.\n` +
-        `İndi mənə yaz — söhbətimizə başlayaq! 💬`,
+        `✅ Hazırıq, ${name}!\n\n` +
+        `${empathyCloser}\n\n` +
+        `İndi mənə yaz — dinləyirəm.`,
       inputType: 'text',
     };
   }
