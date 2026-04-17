@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import * as path from 'path';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { configuration, validationSchema } from './config/configuration';
 import { RedisModule } from './shared/redis/redis.module';
@@ -25,6 +26,11 @@ import { HealthController } from './health.controller';
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      envFilePath: [
+        path.resolve(process.cwd(), '.env'),
+        path.resolve(__dirname, '../../../.env'),
+        path.resolve(__dirname, '../../.env'),
+      ],
       load: [configuration],
       validate: validationSchema,
     }),

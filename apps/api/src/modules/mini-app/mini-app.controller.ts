@@ -10,7 +10,7 @@ import { SubscriptionService } from '../billing/domain/services/subscription.ser
  * REST API for the Telegram Mini App (TWA).
  * All endpoints require telegramId query param for user identification.
  */
-@Controller('api/v1/mini-app')
+@Controller('mini-app')
 export class MiniAppController {
   private readonly logger = new Logger(MiniAppController.name);
 

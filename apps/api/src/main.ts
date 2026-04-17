@@ -17,7 +17,7 @@ async function bootstrap() {
 
   app.enableCors();
   app.setGlobalPrefix('api/v1', {
-    exclude: ['/mini-app', '/mini-app/(.*)'],
+    exclude: ['mini-app', 'mini-app/*path'],
   });
   app.useGlobalFilters(new GlobalExceptionFilter());
 
