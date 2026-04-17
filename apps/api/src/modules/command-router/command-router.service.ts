@@ -581,9 +581,18 @@ export class CommandRouterService {
   }
 
   private async handleClearChat(userId: string): Promise<CommandResponse> {
-    // Clear all conversation contexts for this user from Redis
-    // We don't know the exact conversationId, so clear by pattern
-    // For now, just acknowledge — the next message will start a fresh conversation
+    // Clear the active conversation so next message starts a fresh one
+    const activeConvId = await this.session.getActiveConversation(userId);
+    if (activeConvId) {
+      await this.session.clearConversationContext(activeConvId);
+      // Mark the old conversation as ended
+      await this.prisma.conversation.update({
+        where: { id: activeConvId },
+        data: { endedAt: new Date() },
+      }).catch(() => {}); // non-critical
+    }
+    await this.session.clearActiveConversation(userId);
+
     this.logger.log(`Chat cleared for user ${userId.slice(0, 8)}`);
 
     return this.buildResponse({

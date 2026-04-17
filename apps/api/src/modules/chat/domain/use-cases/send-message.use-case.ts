@@ -26,6 +26,7 @@ export interface SendMessageOutput {
   provider: string;
   model: string;
   isCrisis: boolean;
+  isNewConversation: boolean;
 }
 
 @Injectable()
@@ -43,8 +44,25 @@ export class SendMessageUseCase {
   ) {}
 
   async execute(input: SendMessageInput): Promise<SendMessageOutput> {
-    // 1. Get or create conversation
-    const conversationId = input.conversationId ?? await this.createConversation(input.userId, input.persona);
+    // 1. Get or create conversation (reuse active session if available)
+    let conversationId: string;
+    let isNewConversation = false;
+
+    if (input.conversationId) {
+      conversationId = input.conversationId;
+    } else {
+      // Check for active conversation in Redis
+      const activeId = await this.session.getActiveConversation(input.userId);
+      if (activeId) {
+        conversationId = activeId;
+      } else {
+        conversationId = await this.createConversation(input.userId, input.persona);
+        isNewConversation = true;
+      }
+    }
+
+    // Track active conversation in Redis
+    await this.session.setActiveConversation(input.userId, conversationId);
 
     // 2. Strip PII from user message
     const { cleaned: cleanedMessage } = this.piiStripper.strip(input.message);
@@ -120,6 +138,7 @@ export class SendMessageUseCase {
       provider: response.provider,
       model: response.model,
       isCrisis: crisisResult.isCrisis,
+      isNewConversation,
     };
   }
 

@@ -155,6 +155,34 @@ export class SessionService {
     };
   }
 
+  // ===================== ACTIVE CONVERSATION =====================
+
+  /** Get the active conversation ID for a user (session continuity) */
+  async getActiveConversation(userId: string): Promise<string | null> {
+    return this.redis.get(`active_conversation:${userId}`);
+  }
+
+  /** Set the active conversation ID for a user */
+  async setActiveConversation(userId: string, conversationId: string): Promise<void> {
+    await this.redis.set(
+      `active_conversation:${userId}`,
+      conversationId,
+      'EX',
+      SessionService.TTL.CONVERSATION_CTX,
+    );
+  }
+
+  /** Clear the active conversation (on /clear_chat or session end) */
+  async clearActiveConversation(userId: string): Promise<void> {
+    await this.redis.del(`active_conversation:${userId}`);
+  }
+
+  /** Refresh the active conversation TTL (keep session alive on activity) */
+  async touchActiveConversation(userId: string): Promise<void> {
+    const key = `active_conversation:${userId}`;
+    await this.redis.expire(key, SessionService.TTL.CONVERSATION_CTX);
+  }
+
   // ===================== CONVERSATION CONTEXT =====================
 
   /** Push a message to conversation context (for LLM sliding window) */
