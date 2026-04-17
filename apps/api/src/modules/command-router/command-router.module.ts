@@ -6,9 +6,10 @@ import { BillingModule } from '../billing/billing.module';
 import { ReferralModule } from '../referral/referral.module';
 import { ChatModule } from '../chat/chat.module';
 import { AudioModule } from '../audio/audio.module';
+import { MemoryModule } from '../memory/memory.module';
 
 @Module({
-  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule],
+  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule, MemoryModule],
   providers: [CommandRouterService],
   exports: [CommandRouterService],
 })

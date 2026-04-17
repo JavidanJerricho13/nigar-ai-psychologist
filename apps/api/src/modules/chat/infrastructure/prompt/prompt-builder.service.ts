@@ -11,12 +11,31 @@ export interface UserContext {
   bio?: string | null;
 }
 
+export interface SessionSummaryContext {
+  summary: string;
+  moodScore: number | null;
+  dominantEmotion: string | null;
+  topicsDiscussed: string[];
+  createdAt: Date;
+}
+
+export interface TherapeuticProfileContext {
+  concerns: string[];
+  triggers: string[];
+  strengths: string[];
+  goals: string[];
+  copingMethods: string[];
+  progressNotes: string | null;
+}
+
 export interface PromptBuildInput {
   persona: ActiveRole;
   rudenessEnabled: boolean;
   userContext: UserContext;
   conversationHistory: LlmMessage[];
   currentMessage: string;
+  sessionSummaries?: SessionSummaryContext[];
+  therapeuticProfile?: TherapeuticProfileContext;
 }
 
 /**
@@ -55,17 +74,55 @@ export class PromptBuilderService {
       systemParts.push(`\n--- İSTİFADƏÇİ PROFİLİ ---\n${ctx}`);
     }
 
+    // 5. Therapeutic memory (long-term context)
+    const memoryCtx = this.buildMemoryContext(input.sessionSummaries, input.therapeuticProfile);
+    if (memoryCtx) {
+      systemParts.push(memoryCtx);
+    }
+
     messages.push({ role: 'system', content: systemParts.join('\n') });
 
-    // 5. Conversation history
+    // 6. Conversation history
     for (const msg of input.conversationHistory) {
       messages.push(msg);
     }
 
-    // 6. Current user message
+    // 7. Current user message
     messages.push({ role: 'user', content: input.currentMessage });
 
     return messages;
+  }
+
+  private buildMemoryContext(
+    summaries?: SessionSummaryContext[],
+    profile?: TherapeuticProfileContext,
+  ): string | null {
+    const parts: string[] = [];
+
+    // Session summaries (last 3)
+    if (summaries && summaries.length > 0) {
+      const summaryLines = summaries.map((s) => {
+        const date = s.createdAt.toLocaleDateString('az-AZ', { day: 'numeric', month: 'short' });
+        const topics = s.topicsDiscussed.join(', ');
+        const mood = s.moodScore ? `Əhval: ${s.moodScore}/10` : '';
+        return `- [${date}] ${s.summary} (${topics}) ${mood}`.trim();
+      });
+      parts.push(`--- SON SESSİYA XÜLASƏLƏRİ ---\n${summaryLines.join('\n')}`);
+    }
+
+    // Therapeutic profile
+    if (profile && (profile.concerns.length > 0 || profile.goals.length > 0)) {
+      const profileLines: string[] = [];
+      if (profile.concerns.length > 0) profileLines.push(`Narahatlıqlar: ${profile.concerns.join(', ')}`);
+      if (profile.triggers.length > 0) profileLines.push(`Triggerlər: ${profile.triggers.join(', ')}`);
+      if (profile.strengths.length > 0) profileLines.push(`Güclü tərəflər: ${profile.strengths.join(', ')}`);
+      if (profile.goals.length > 0) profileLines.push(`Hədəflər: ${profile.goals.join(', ')}`);
+      if (profile.copingMethods.length > 0) profileLines.push(`Baş çıxma: ${profile.copingMethods.join(', ')}`);
+      if (profile.progressNotes) profileLines.push(`Son qeyd: ${profile.progressNotes}`);
+      parts.push(`--- TERAPEVTİK PROFİL ---\n${profileLines.join('\n')}`);
+    }
+
+    return parts.length > 0 ? '\n' + parts.join('\n\n') : null;
   }
 
   private buildUserContext(ctx: UserContext): string | null {

@@ -4,7 +4,12 @@ import { PrismaService } from '../../../../shared/prisma/prisma.service';
 import { EncryptionService } from '../../../../common/encryption/encryption.service';
 import { SessionService } from '../../../../shared/redis/session.service';
 import { FallbackRouter } from '../../infrastructure/providers/fallback-router';
-import { PromptBuilderService, UserContext } from '../../infrastructure/prompt/prompt-builder.service';
+import {
+  PromptBuilderService,
+  UserContext,
+  SessionSummaryContext,
+  TherapeuticProfileContext,
+} from '../../infrastructure/prompt/prompt-builder.service';
 import { PiiStripperService } from '../../infrastructure/pii/pii-stripper.service';
 import { SlidingWindowService } from '../../infrastructure/context/sliding-window.service';
 import { CRISIS_DETECTION_PROMPT } from '../../infrastructure/prompt/templates/system-preamble';
@@ -17,6 +22,8 @@ export interface SendMessageInput {
   persona: ActiveRole;
   rudenessEnabled: boolean;
   userContext: UserContext;
+  sessionSummaries?: SessionSummaryContext[];
+  therapeuticProfile?: TherapeuticProfileContext;
 }
 
 export interface SendMessageOutput {
@@ -80,13 +87,15 @@ export class SendMessageUseCase {
     // 5. Trim history to token budget
     const trimmedHistory = this.slidingWindow.trim(history);
 
-    // 6. Build prompt
+    // 6. Build prompt (with therapeutic memory if available)
     const messages = this.promptBuilder.build({
       persona: input.persona,
       rudenessEnabled: input.rudenessEnabled,
       userContext: input.userContext,
       conversationHistory: trimmedHistory,
       currentMessage: cleanedMessage,
+      sessionSummaries: input.sessionSummaries,
+      therapeuticProfile: input.therapeuticProfile,
     });
 
     // 7. Call LLM via fallback router

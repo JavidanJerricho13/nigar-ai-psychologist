@@ -17,6 +17,11 @@ import { GetTransactionHistoryUseCase } from '../billing/domain/use-cases/get-tr
 import { StripeAdapter, CREDIT_PACKAGES } from '../billing/infrastructure/adapters/stripe.adapter';
 import { PrismaService } from '../../shared/prisma/prisma.service';
 import { SessionService } from '../../shared/redis/session.service';
+import { SessionSummaryService } from '../memory/domain/services/session-summary.service';
+import { TherapeuticProfileService } from '../memory/domain/services/therapeutic-profile.service';
+import { SummaryProducer } from '../memory/infrastructure/queues/summary.producer';
+import { MoodExtractionService } from '../memory/domain/services/mood-extraction.service';
+import { StreakService } from '../memory/domain/services/streak.service';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
@@ -40,6 +45,11 @@ export class CommandRouterService {
     private readonly stripeAdapter: StripeAdapter,
     private readonly prisma: PrismaService,
     private readonly session: SessionService,
+    private readonly summaryService: SessionSummaryService,
+    private readonly profileService: TherapeuticProfileService,
+    private readonly summaryProducer: SummaryProducer,
+    private readonly moodService: MoodExtractionService,
+    private readonly streakService: StreakService,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -528,6 +538,12 @@ export class CommandRouterService {
     const persona = (full?.settings?.activeRole as ActiveRole) ?? ActiveRole.NIGAR;
     const rudenessEnabled = full?.settings?.nigarBlackRudenessEnabled ?? false;
 
+    // Load therapeutic memory context for the prompt
+    const [sessionSummaries, therapeuticProfile] = await Promise.all([
+      this.summaryService.getRecentSummaries(userId, 3),
+      this.profileService.getOrCreate(userId),
+    ]);
+
     const result = await this.sendMessage.execute({
       userId,
       message: message.trim(),
@@ -539,7 +555,14 @@ export class CommandRouterService {
         gender: full?.profile?.gender,
         bio: full?.profile?.bio,
       },
+      sessionSummaries,
+      therapeuticProfile,
     });
+
+    // If a new conversation was created, the old one has ended — enqueue summary
+    if (result.isNewConversation) {
+      this.enqueuePreviousSessionSummary(userId, result.conversationId).catch(() => {});
+    }
 
     // TTS: generate voice if user prefers voice or voice+text
     const responseFormat = full?.settings?.responseFormat as ResponseFormat | undefined;
@@ -895,6 +918,54 @@ export class CommandRouterService {
       text: `🚧 /${def.command} — ${def.description}\n\nBu funksiya tezliklə aktiv olacaq.`,
       inputType: 'text',
     });
+  }
+
+  // ===================== SESSION LIFECYCLE =====================
+
+  /**
+   * When a new conversation starts, find and close the previous one,
+   * then enqueue an async summary generation job.
+   */
+  private async enqueuePreviousSessionSummary(
+    userId: string,
+    currentConversationId: string,
+  ): Promise<void> {
+    try {
+      const previousConv = await this.prisma.conversation.findFirst({
+        where: {
+          userId,
+          id: { not: currentConversationId },
+          endedAt: null,
+          messageCount: { gte: 2 },
+        },
+        orderBy: { startedAt: 'desc' },
+        select: { id: true },
+      });
+
+      if (!previousConv) return;
+
+      // Mark as ended
+      await this.prisma.conversation.update({
+        where: { id: previousConv.id },
+        data: { endedAt: new Date() },
+      });
+
+      // Check if summary already exists
+      const existingSummary = await this.prisma.conversationSummary.findUnique({
+        where: { conversationId: previousConv.id },
+      });
+      if (existingSummary) return;
+
+      // Enqueue async summary generation
+      await this.summaryProducer.enqueueSummary({
+        conversationId: previousConv.id,
+        userId,
+      });
+
+      this.logger.log(`Previous session closed & summary enqueued: conv=${previousConv.id.slice(0, 8)}`);
+    } catch (err) {
+      this.logger.warn(`Failed to enqueue previous session summary: ${(err as Error).message}`);
+    }
   }
 
   // ===================== HELPERS =====================

@@ -47,7 +47,7 @@ const mockGetReferralInfo = {
 const mockApplyReferral = { execute: jest.fn().mockResolvedValue({ success: true }) };
 const mockSendMessage = {
   execute: jest.fn().mockResolvedValue({
-    reply: 'AI cavab', conversationId: 'conv-1', tokensUsed: 50, provider: 'groq', model: 'llama-3.3-70b', isCrisis: false,
+    reply: 'AI cavab', conversationId: 'conv-1', tokensUsed: 50, provider: 'groq', model: 'llama-3.3-70b', isCrisis: false, isNewConversation: false,
   }),
 };
 const mockSynthesizeSpeech = {
@@ -60,7 +60,12 @@ const mockPrisma = {
   conversation: { count: jest.fn().mockResolvedValue(5), findFirst: jest.fn().mockResolvedValue(null) },
   message: { count: jest.fn().mockResolvedValue(20) },
 };
-const mockSession = { clearConversationContext: jest.fn(), getConversationContext: jest.fn().mockResolvedValue([]) };
+const mockSession = { clearConversationContext: jest.fn(), clearActiveConversation: jest.fn(), getActiveConversation: jest.fn().mockResolvedValue(null), getConversationContext: jest.fn().mockResolvedValue([]) };
+const mockSummaryService = { getRecentSummaries: jest.fn().mockResolvedValue([]), generateSummary: jest.fn() };
+const mockProfileService = { getOrCreate: jest.fn().mockResolvedValue({ concerns: [], triggers: [], strengths: [], goals: [], copingMethods: [], progressNotes: null, version: 1 }) };
+const mockSummaryProducer = { enqueueSummary: jest.fn() };
+const mockMoodService = { getMoodHistory: jest.fn().mockResolvedValue([]), getMoodTrend: jest.fn() };
+const mockStreakService = { recordSession: jest.fn().mockResolvedValue(null), getStreak: jest.fn() };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
   return new CommandRouterService(
@@ -79,6 +84,11 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.stripeAdapter ?? mockStripeAdapter as any,
     overrides?.prisma ?? mockPrisma as any,
     overrides?.session ?? mockSession as any,
+    overrides?.summaryService ?? mockSummaryService as any,
+    overrides?.profileService ?? mockProfileService as any,
+    overrides?.summaryProducer ?? mockSummaryProducer as any,
+    overrides?.moodService ?? mockMoodService as any,
+    overrides?.streakService ?? mockStreakService as any,
   );
 }
 
