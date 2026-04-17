@@ -57,8 +57,10 @@ const mockSynthesizeSpeech = {
 const mockTransactionHistory = { execute: jest.fn().mockResolvedValue([]) };
 const mockStripeAdapter = { isConfigured: false };
 const mockPrisma = {
-  conversation: { count: jest.fn().mockResolvedValue(5), findFirst: jest.fn().mockResolvedValue(null) },
+  conversation: { count: jest.fn().mockResolvedValue(5), findFirst: jest.fn().mockResolvedValue(null), update: jest.fn() },
   message: { count: jest.fn().mockResolvedValue(20) },
+  conversationSummary: { findUnique: jest.fn().mockResolvedValue(null) },
+  userOutreachSettings: { upsert: jest.fn(), findUnique: jest.fn().mockResolvedValue(null) },
 };
 const mockSession = { clearConversationContext: jest.fn(), clearActiveConversation: jest.fn(), getActiveConversation: jest.fn().mockResolvedValue(null), getConversationContext: jest.fn().mockResolvedValue([]) };
 const mockSummaryService = { getRecentSummaries: jest.fn().mockResolvedValue([]), generateSummary: jest.fn() };
@@ -66,6 +68,7 @@ const mockProfileService = { getOrCreate: jest.fn().mockResolvedValue({ concerns
 const mockSummaryProducer = { enqueueSummary: jest.fn() };
 const mockMoodService = { getMoodHistory: jest.fn().mockResolvedValue([]), getMoodTrend: jest.fn() };
 const mockStreakService = { recordSession: jest.fn().mockResolvedValue(null), getStreak: jest.fn() };
+const mockOutreachProducer = { scheduleCheckIn: jest.fn(), scheduleCrisisFollowUp: jest.fn(), scheduleMilestone: jest.fn() };
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
   return new CommandRouterService(
@@ -89,6 +92,7 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.summaryProducer ?? mockSummaryProducer as any,
     overrides?.moodService ?? mockMoodService as any,
     overrides?.streakService ?? mockStreakService as any,
+    overrides?.outreachProducer ?? mockOutreachProducer as any,
   );
 }
 

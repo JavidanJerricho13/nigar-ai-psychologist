@@ -49,6 +49,8 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { command: 'journal', handler: 'journal', description: 'Sessiya jurnalı', availableDuringOnboarding: false },
   { command: 'clear_chat', handler: 'clear_chat', description: 'Söhbəti təmizlə', availableDuringOnboarding: false },
   { command: 'memory', handler: 'memory', description: 'Nigarın xatirələri', availableDuringOnboarding: false },
+  { command: 'mute', handler: 'mute', description: 'Bildirişləri dayandır', availableDuringOnboarding: false },
+  { command: 'unmute', handler: 'unmute', description: 'Bildirişləri aktivləşdir', availableDuringOnboarding: false },
 
   // Meta
   { command: 'support', handler: 'support', description: 'Dəstək', availableDuringOnboarding: true },

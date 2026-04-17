@@ -7,9 +7,10 @@ import { ReferralModule } from '../referral/referral.module';
 import { ChatModule } from '../chat/chat.module';
 import { AudioModule } from '../audio/audio.module';
 import { MemoryModule } from '../memory/memory.module';
+import { OutreachModule } from '../outreach/outreach.module';
 
 @Module({
-  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule, MemoryModule],
+  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule, MemoryModule, OutreachModule],
   providers: [CommandRouterService],
   exports: [CommandRouterService],
 })

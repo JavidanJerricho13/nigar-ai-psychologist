@@ -22,6 +22,7 @@ import { TherapeuticProfileService } from '../memory/domain/services/therapeutic
 import { SummaryProducer } from '../memory/infrastructure/queues/summary.producer';
 import { MoodExtractionService } from '../memory/domain/services/mood-extraction.service';
 import { StreakService } from '../memory/domain/services/streak.service';
+import { OutreachProducer } from '../outreach/infrastructure/queues/outreach.producer';
 import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
@@ -50,6 +51,7 @@ export class CommandRouterService {
     private readonly summaryProducer: SummaryProducer,
     private readonly moodService: MoodExtractionService,
     private readonly streakService: StreakService,
+    private readonly outreachProducer: OutreachProducer,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -225,6 +227,12 @@ export class CommandRouterService {
 
       case 'journal':
         return this.handleJournal(userId);
+
+      case 'mute':
+        return this.handleMute(userId);
+
+      case 'unmute':
+        return this.handleUnmute(userId);
 
       case 'support':
         return this.handleSupport();
@@ -1004,6 +1012,32 @@ export class CommandRouterService {
     });
   }
 
+  private async handleMute(userId: string): Promise<CommandResponse> {
+    await this.prisma.userOutreachSettings.upsert({
+      where: { userId },
+      create: { userId, muted: true },
+      update: { muted: true, mutedUntil: null },
+    });
+
+    return this.buildResponse({
+      text: '🔇 Proaktiv bildirişlər dayandırıldı.\n\nYenidən aktivləşdirmək üçün: /unmute',
+      inputType: 'text',
+    });
+  }
+
+  private async handleUnmute(userId: string): Promise<CommandResponse> {
+    await this.prisma.userOutreachSettings.upsert({
+      where: { userId },
+      create: { userId, muted: false },
+      update: { muted: false, mutedUntil: null },
+    });
+
+    return this.buildResponse({
+      text: '🔔 Bildirişlər yenidən aktivdir!\n\nNigar səninlə proaktiv olaraq əlaqə saxlayacaq.',
+      inputType: 'text',
+    });
+  }
+
   // ===================== SESSION LIFECYCLE =====================
 
   /**
@@ -1045,6 +1079,9 @@ export class CommandRouterService {
         conversationId: previousConv.id,
         userId,
       });
+
+      // Schedule a 24h check-in for proactive engagement
+      await this.outreachProducer.scheduleCheckIn(userId, previousConv.id).catch(() => {});
 
       this.logger.log(`Previous session closed & summary enqueued: conv=${previousConv.id.slice(0, 8)}`);
     } catch (err) {
