@@ -47,6 +47,12 @@ enum TransactionType {
   referral_bonus
 }
 
+enum SubscriptionTier {
+  free
+  premium
+  premium_plus
+}
+
 // ===================== MODELS =====================
 
 model User {
@@ -77,6 +83,7 @@ model User {
   streak                 UserStreak?
   outreachSettings       UserOutreachSettings?
   outreachLogs           OutreachLog[]
+  subscription           UserSubscription?
 
   @@index([referredBy])
   @@map("users")
@@ -325,4 +332,25 @@ model UserOutreachSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_outreach_settings")
+}
+
+// ===================== SUBSCRIPTION =====================
+
+model UserSubscription {
+  id                   String           @id @default(uuid()) @db.Uuid
+  userId               String           @unique @map("user_id") @db.Uuid
+  tier                 SubscriptionTier @default(free)
+  stripeCustomerId     String?          @map("stripe_customer_id") @db.VarChar(255)
+  stripeSubscriptionId String?          @map("stripe_subscription_id") @db.VarChar(255)
+  currentPeriodStart   DateTime?        @map("current_period_start")
+  currentPeriodEnd     DateTime?        @map("current_period_end")
+  cancelAtPeriodEnd    Boolean          @default(false) @map("cancel_at_period_end")
+  sessionsThisWeek     Int              @default(0) @map("sessions_this_week")
+  weekResetAt          DateTime         @default(now()) @map("week_reset_at")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_subscriptions")
 }

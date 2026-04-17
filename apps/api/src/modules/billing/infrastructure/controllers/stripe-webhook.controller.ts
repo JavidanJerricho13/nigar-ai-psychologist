@@ -10,7 +10,9 @@ import {
 import { Request, Response } from 'express';
 import { StripeAdapter } from '../adapters/stripe.adapter';
 import { AddCreditsUseCase } from '../../domain/use-cases/add-credits.use-case';
+import { SubscriptionService } from '../../domain/services/subscription.service';
 import { TelegramAdminNotifierService } from '../../../alerting/services/telegram-admin-notifier.service';
+import { SubscriptionTier } from '@nigar/shared-types';
 
 /**
  * Stripe webhook controller.
@@ -24,6 +26,7 @@ export class StripeWebhookController {
   constructor(
     private readonly stripeAdapter: StripeAdapter,
     private readonly addCredits: AddCreditsUseCase,
+    private readonly subscriptionService: SubscriptionService,
     private readonly notifier: TelegramAdminNotifierService,
   ) {}
 
@@ -64,6 +67,35 @@ export class StripeWebhookController {
           this.logger.log(
             `💳 Payment processed: ${credits} credits for user ${userId.slice(0, 8)} (session: ${session.id})`,
           );
+        }
+      } else if (event.type === 'customer.subscription.created' || event.type === 'customer.subscription.updated') {
+        const subscription = event.data.object as any;
+        const userId = subscription.metadata?.userId;
+        const tier = subscription.metadata?.tier as string;
+
+        if (userId && tier) {
+          const tierEnum = tier === 'premium_plus'
+            ? SubscriptionTier.PREMIUM_PLUS
+            : SubscriptionTier.PREMIUM;
+
+          await this.subscriptionService.upgradeTier(
+            userId,
+            tierEnum,
+            subscription.customer as string,
+            subscription.id,
+            new Date(subscription.current_period_start * 1000),
+            new Date(subscription.current_period_end * 1000),
+          );
+
+          this.logger.log(`Subscription ${event.type}: user=${userId.slice(0, 8)} tier=${tier}`);
+        }
+      } else if (event.type === 'customer.subscription.deleted') {
+        const subscription = event.data.object as any;
+        const userId = subscription.metadata?.userId;
+
+        if (userId) {
+          await this.subscriptionService.cancelAtPeriodEnd(userId);
+          this.logger.log(`Subscription cancelled: user=${userId.slice(0, 8)}`);
         }
       } else if (event.type === 'payment_intent.payment_failed') {
         // 6.3 — alert admin on failed payment

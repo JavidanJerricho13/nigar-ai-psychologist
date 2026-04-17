@@ -69,6 +69,14 @@ const mockSummaryProducer = { enqueueSummary: jest.fn() };
 const mockMoodService = { getMoodHistory: jest.fn().mockResolvedValue([]), getMoodTrend: jest.fn() };
 const mockStreakService = { recordSession: jest.fn().mockResolvedValue(null), getStreak: jest.fn() };
 const mockOutreachProducer = { scheduleCheckIn: jest.fn(), scheduleCrisisFollowUp: jest.fn(), scheduleMilestone: jest.fn() };
+const mockSubscriptionService = {
+  getSubscription: jest.fn().mockResolvedValue({
+    tier: 'premium', plan: { name: 'Premium', sessionsPerWeek: 0, allowedRoles: ['nigar', 'nigar_black', 'super_nigar', 'nigar_dost', 'nigar_trainer', 'nigar_18plus'], hasMemory: true, hasCheckIns: true, hasMoodChart: true },
+    sessionsRemaining: null, isActive: true,
+  }),
+  recordSession: jest.fn().mockResolvedValue({ allowed: true, remaining: null }),
+  isRoleAllowed: jest.fn().mockResolvedValue(true),
+};
 
 function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterService {
   return new CommandRouterService(
@@ -93,6 +101,7 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.moodService ?? mockMoodService as any,
     overrides?.streakService ?? mockStreakService as any,
     overrides?.outreachProducer ?? mockOutreachProducer as any,
+    overrides?.subscriptionService ?? mockSubscriptionService as any,
   );
 }
 

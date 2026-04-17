@@ -78,6 +78,47 @@ export class StripeAdapter {
     return session.url!;
   }
 
+  /**
+   * Create a Stripe Checkout session for a recurring subscription.
+   */
+  async createSubscriptionCheckout(
+    userId: string,
+    priceCents: number,
+    planName: string,
+    tier: string,
+    botUsername: string,
+  ): Promise<string> {
+    if (!this.stripe) throw new Error('Stripe not configured');
+
+    const session = await this.stripe.checkout.sessions.create({
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [
+        {
+          price_data: {
+            currency: 'azn',
+            recurring: { interval: 'month' },
+            unit_amount: priceCents,
+            product_data: {
+              name: `Nigar AI — ${planName}`,
+              description: `Aylıq abunəlik: ${planName}`,
+            },
+          },
+          quantity: 1,
+        },
+      ],
+      metadata: { userId, tier },
+      success_url: `https://t.me/${botUsername}?start=sub_success`,
+      cancel_url: `https://t.me/${botUsername}?start=sub_cancel`,
+    });
+
+    this.logger.log(
+      `Subscription checkout created: ${session.id} | ${planName} for user ${userId.slice(0, 8)}`,
+    );
+
+    return session.url!;
+  }
+
   constructEvent(payload: Buffer, signature: string): Stripe.Event {
     if (!this.stripe) throw new Error('Stripe not configured');
     return this.stripe.webhooks.constructEvent(

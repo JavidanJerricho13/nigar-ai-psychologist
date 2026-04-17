@@ -37,6 +37,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { command: 'credits', handler: 'credits', description: 'Kredit tarixçəsi', availableDuringOnboarding: false },
   { command: 'referral', handler: 'referral', description: 'Referal proqramı', availableDuringOnboarding: false },
   { command: 'gift', handler: 'gift', description: 'Hədiyyə göndər', availableDuringOnboarding: false },
+  { command: 'subscribe', handler: 'subscribe', description: 'Abunəlik planları', availableDuringOnboarding: false },
 
   // Content & Features
   { command: 'topics', handler: 'topics', description: 'Mövzu seç', availableDuringOnboarding: false },

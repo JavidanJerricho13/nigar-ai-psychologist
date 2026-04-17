@@ -9,6 +9,7 @@ import { GiftCreditsUseCase } from './domain/use-cases/gift-credits.use-case';
 import { GetTransactionHistoryUseCase } from './domain/use-cases/get-transaction-history.use-case';
 import { StripeAdapter } from './infrastructure/adapters/stripe.adapter';
 import { StripeWebhookController } from './infrastructure/controllers/stripe-webhook.controller';
+import { SubscriptionService } from './domain/services/subscription.service';
 
 @Module({
   imports: [AlertingModule],
@@ -21,6 +22,7 @@ import { StripeWebhookController } from './infrastructure/controllers/stripe-web
     GiftCreditsUseCase,
     GetTransactionHistoryUseCase,
     StripeAdapter,
+    SubscriptionService,
   ],
   exports: [
     GetBalanceUseCase,
@@ -29,6 +31,7 @@ import { StripeWebhookController } from './infrastructure/controllers/stripe-web
     GiftCreditsUseCase,
     GetTransactionHistoryUseCase,
     StripeAdapter,
+    SubscriptionService,
   ],
 })
 export class BillingModule {}

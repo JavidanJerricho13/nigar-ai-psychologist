@@ -23,7 +23,8 @@ import { SummaryProducer } from '../memory/infrastructure/queues/summary.produce
 import { MoodExtractionService } from '../memory/domain/services/mood-extraction.service';
 import { StreakService } from '../memory/domain/services/streak.service';
 import { OutreachProducer } from '../outreach/infrastructure/queues/outreach.producer';
-import { ActiveRole, ResponseFormat } from '@nigar/shared-types';
+import { SubscriptionService, SUBSCRIPTION_PLANS } from '../billing/domain/services/subscription.service';
+import { ActiveRole, ResponseFormat, SubscriptionTier } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
 @Injectable()
@@ -52,6 +53,7 @@ export class CommandRouterService {
     private readonly moodService: MoodExtractionService,
     private readonly streakService: StreakService,
     private readonly outreachProducer: OutreachProducer,
+    private readonly subscriptionService: SubscriptionService,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -128,6 +130,11 @@ export class CommandRouterService {
         // Payment package callback: "pay:pack_10"
         if (payload.startsWith('pay:')) {
           return this.handlePayCallback(userId, payload.slice(4));
+        }
+
+        // Subscription callback: "sub:premium" / "sub:premium_plus"
+        if (payload.startsWith('sub:')) {
+          return this.handleSubCallback(userId, payload.slice(4));
         }
 
         // Command redirect callback: "cmd:roles" / "cmd:format"
@@ -213,6 +220,9 @@ export class CommandRouterService {
       case 'gift':
         return this.handleGift(userId, request);
 
+      case 'subscribe':
+        return this.handleSubscribe(userId, request);
+
       case 'topics':
         return this.handleTopics();
 
@@ -262,6 +272,21 @@ export class CommandRouterService {
       const balance = await this.getBalance.execute(userId);
       return this.buildResponse({
         text: `✅ Ödəniş uğurla tamamlandı!\n\n💳 Cari balans: ${balance.balance} kredit\n\nİndi mənə yaz — söhbətimizə davam edək! 💬`,
+        inputType: 'text',
+      });
+    }
+
+    if (deepLink === 'sub_success') {
+      const sub = await this.subscriptionService.getSubscription(userId);
+      return this.buildResponse({
+        text: `✅ Abunəlik aktivləşdirildi!\n\n🎉 Plan: ${sub.plan.name}\n\nBütün premium xüsusiyyətlər artıq aktivdir.\nMənə yaz — söhbətimizə davam edək! 💬`,
+        inputType: 'text',
+      });
+    }
+
+    if (deepLink === 'sub_cancel') {
+      return this.buildResponse({
+        text: '❌ Abunəlik ləğv edildi.\n\nYenidən cəhd etmək üçün: /subscribe',
         inputType: 'text',
       });
     }
@@ -547,16 +572,49 @@ export class CommandRouterService {
       return this.buildResponse({ text: 'Boş mesaj göndərə bilməzsən.', inputType: 'text' });
     }
 
+    // Check subscription & session limits
+    const sub = await this.subscriptionService.getSubscription(userId);
+    const sessionCheck = await this.subscriptionService.recordSession(userId);
+    if (!sessionCheck.allowed) {
+      return this.buildResponse({
+        text:
+          `⏳ Bu həftəlik pulsuz sessiya limitin bitdi (${sub.plan.sessionsPerWeek}/${sub.plan.sessionsPerWeek}).\n\n` +
+          `Premium abunəliklə limitsiz söhbət et!\n\n` +
+          `/subscribe — Planları gör`,
+        options: [
+          { id: 'sub_premium', label: '💎 Premium — 9.90 AZN/ay', value: 'sub:premium' },
+          { id: 'sub_plus', label: '👑 Premium+ — 19.90 AZN/ay', value: 'sub:premium_plus' },
+        ],
+        inputType: 'button',
+      });
+    }
+
     // Fetch user profile + settings for persona context
     const full = await this.getFullProfile.execute(userId);
     const persona = (full?.settings?.activeRole as ActiveRole) ?? ActiveRole.NIGAR;
     const rudenessEnabled = full?.settings?.nigarBlackRudenessEnabled ?? false;
 
-    // Load therapeutic memory context for the prompt
-    const [sessionSummaries, therapeuticProfile] = await Promise.all([
-      this.summaryService.getRecentSummaries(userId, 3),
-      this.profileService.getOrCreate(userId),
-    ]);
+    // Gate premium personas
+    if (!sub.plan.allowedRoles.includes(persona)) {
+      return this.buildResponse({
+        text:
+          `🔒 ${persona} rolu yalnız Premium abunəliklə mövcuddur.\n\n` +
+          `/subscribe — Planları gör\n` +
+          `/roles — Başqa rol seç`,
+        inputType: 'text',
+      });
+    }
+
+    // Load therapeutic memory context (premium feature)
+    let sessionSummaries: Awaited<ReturnType<typeof this.summaryService.getRecentSummaries>> = [];
+    let therapeuticProfile: Awaited<ReturnType<typeof this.profileService.getOrCreate>> | undefined;
+
+    if (sub.plan.hasMemory) {
+      [sessionSummaries, therapeuticProfile] = await Promise.all([
+        this.summaryService.getRecentSummaries(userId, 3),
+        this.profileService.getOrCreate(userId),
+      ]);
+    }
 
     const result = await this.sendMessage.execute({
       userId,
@@ -1015,6 +1073,94 @@ export class CommandRouterService {
       text: `🚧 /${def.command} — ${def.description}\n\nBu funksiya tezliklə aktiv olacaq.`,
       inputType: 'text',
     });
+  }
+
+  private async handleSubscribe(
+    userId: string,
+    _request: CommandRequest,
+  ): Promise<CommandResponse> {
+    const sub = await this.subscriptionService.getSubscription(userId);
+    const current = sub.plan;
+
+    const parts: string[] = [
+      `💎 Abunəlik planları:\n`,
+      `Hazırkı plan: **${current.name}**\n`,
+    ];
+
+    if (sub.sessionsRemaining !== null) {
+      parts.push(`Qalan sessiya: ${sub.sessionsRemaining}/${current.sessionsPerWeek}\n`);
+    }
+
+    // Show plans
+    const premium = SUBSCRIPTION_PLANS[SubscriptionTier.PREMIUM];
+    const premiumPlus = SUBSCRIPTION_PLANS[SubscriptionTier.PREMIUM_PLUS];
+
+    parts.push(`\n--- Premium (${premium.priceAzn} AZN/ay) ---`);
+    premium.features.forEach((f) => parts.push(`✅ ${f}`));
+
+    parts.push(`\n--- Premium+ (${premiumPlus.priceAzn} AZN/ay) ---`);
+    premiumPlus.features.forEach((f) => parts.push(`✅ ${f}`));
+
+    const options = [];
+    if (sub.tier === SubscriptionTier.FREE) {
+      options.push(
+        { id: 'sub_premium', label: `💎 Premium — ${premium.priceAzn} AZN/ay`, value: 'sub:premium' },
+        { id: 'sub_plus', label: `👑 Premium+ — ${premiumPlus.priceAzn} AZN/ay`, value: 'sub:premium_plus' },
+      );
+    } else if (sub.tier === SubscriptionTier.PREMIUM) {
+      options.push(
+        { id: 'sub_plus', label: `👑 Premium+-a yüksəlt — ${premiumPlus.priceAzn} AZN/ay`, value: 'sub:premium_plus' },
+      );
+    }
+    options.push({ id: 'hide', label: 'Gizlət', value: 'hide' });
+
+    return this.buildResponse({
+      text: parts.join('\n'),
+      options,
+      inputType: 'button',
+    });
+  }
+
+  private async handleSubCallback(
+    userId: string,
+    tierKey: string,
+  ): Promise<CommandResponse> {
+    const tier = tierKey === 'premium_plus'
+      ? SubscriptionTier.PREMIUM_PLUS
+      : SubscriptionTier.PREMIUM;
+    const plan = SUBSCRIPTION_PLANS[tier];
+
+    if (!this.stripeAdapter.isConfigured) {
+      return this.buildResponse({
+        text: '💳 Ödəniş sistemi hələ aktiv deyil. Tezliklə mövcud olacaq!',
+        inputType: 'text',
+      });
+    }
+
+    try {
+      const url = await this.stripeAdapter.createSubscriptionCheckout(
+        userId,
+        plan.priceCentsMonthly,
+        plan.name,
+        tier,
+        'Nigar_Psixoloq_bot',
+      );
+
+      return this.buildResponse({
+        text:
+          `💎 ${plan.name} abunəliyi üçün ödəniş linki:\n\n` +
+          `${plan.priceAzn} AZN/ay\n\n` +
+          `👉 ${url}\n\n` +
+          `Ödəniş tamamlandıqdan sonra plan avtomatik aktivləşəcək.`,
+        inputType: 'text',
+      });
+    } catch (err) {
+      this.logger.error(`Subscription checkout failed: ${(err as Error).message}`);
+      return this.buildResponse({
+        text: '⚠️ Ödəniş linki yaradıla bilmədi. Zəhmət olmasa sonra cəhd edin.',
+        inputType: 'text',
+      });
+    }
   }
 
   private async handleMute(userId: string): Promise<CommandResponse> {

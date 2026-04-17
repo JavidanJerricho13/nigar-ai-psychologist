@@ -34,6 +34,12 @@ export enum TransactionType {
   REFERRAL_BONUS = 'referral_bonus',
 }
 
+export enum SubscriptionTier {
+  FREE = 'free',
+  PREMIUM = 'premium',
+  PREMIUM_PLUS = 'premium_plus',
+}
+
 // ===================== ONBOARDING FSM =====================
 
 export interface ButtonOption {
