@@ -85,6 +85,7 @@ model User {
   outreachLogs           OutreachLog[]
   subscription           UserSubscription?
   anonymousInvites       AnonymousInvite[]  @relation("InvitesCreated")
+  programs               UserProgram[]
 
   @@index([referredBy])
   @@map("users")
@@ -333,6 +334,46 @@ model UserOutreachSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_outreach_settings")
+}
+
+// ===================== THERAPY PROGRAMS =====================
+
+model UserProgram {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  programId     String    @map("program_id") @db.VarChar(50) // e.g. "cbt_anxiety_6w"
+  currentWeek   Int       @default(1) @map("current_week")
+  currentDay    Int       @default(1) @map("current_day")
+  totalWeeks    Int       @map("total_weeks")
+  completedDays Int       @default(0) @map("completed_days")
+  status        String    @default("active") @db.VarChar(20) // active | paused | completed
+  startedAt     DateTime  @default(now()) @map("started_at")
+  completedAt   DateTime? @map("completed_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  user     User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  entries  ProgramDayEntry[]
+
+  @@unique([userId, programId])
+  @@index([userId])
+  @@map("user_programs")
+}
+
+model ProgramDayEntry {
+  id            String   @id @default(uuid()) @db.Uuid
+  userProgramId String   @map("user_program_id") @db.Uuid
+  week          Int
+  day           Int
+  exerciseDone  Boolean  @default(false) @map("exercise_done")
+  userNotes     String?  @map("user_notes")
+  moodBefore    Int?     @map("mood_before") // 1-10
+  moodAfter     Int?     @map("mood_after")  // 1-10
+  completedAt   DateTime @default(now()) @map("completed_at")
+
+  userProgram UserProgram @relation(fields: [userProgramId], references: [id], onDelete: Cascade)
+
+  @@index([userProgramId, week, day])
+  @@map("program_day_entries")
 }
 
 // ===================== SHADOW REFERRAL =====================

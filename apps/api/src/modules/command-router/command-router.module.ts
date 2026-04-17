@@ -8,9 +8,10 @@ import { ChatModule } from '../chat/chat.module';
 import { AudioModule } from '../audio/audio.module';
 import { MemoryModule } from '../memory/memory.module';
 import { OutreachModule } from '../outreach/outreach.module';
+import { ProgramsModule } from '../programs/programs.module';
 
 @Module({
-  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule, MemoryModule, OutreachModule],
+  imports: [OnboardingModule, UserModule, BillingModule, ReferralModule, ChatModule, AudioModule, MemoryModule, OutreachModule, ProgramsModule],
   providers: [CommandRouterService],
   exports: [CommandRouterService],
 })

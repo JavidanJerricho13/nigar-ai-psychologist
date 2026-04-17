@@ -71,6 +71,7 @@ const mockStreakService = { recordSession: jest.fn().mockResolvedValue(null), ge
 const mockOutreachProducer = { scheduleCheckIn: jest.fn(), scheduleCrisisFollowUp: jest.fn(), scheduleMilestone: jest.fn() };
 const mockShadowReferral = { createInvite: jest.fn(), claimInvite: jest.fn().mockResolvedValue(false), getInviteStats: jest.fn() };
 const mockWisdomCard = { generateCard: jest.fn().mockResolvedValue({ insight: 'test', category: 'growth', shareText: 'test share' }) };
+const mockProgramService = { getAvailablePrograms: jest.fn().mockReturnValue([]), getActivePrograms: jest.fn().mockResolvedValue([]) };
 const mockSubscriptionService = {
   getSubscription: jest.fn().mockResolvedValue({
     tier: 'premium', plan: { name: 'Premium', sessionsPerWeek: 0, allowedRoles: ['nigar', 'nigar_black', 'super_nigar', 'nigar_dost', 'nigar_trainer', 'nigar_18plus'], hasMemory: true, hasCheckIns: true, hasMoodChart: true },
@@ -106,6 +107,7 @@ function createRouter(overrides?: Partial<Record<string, any>>): CommandRouterSe
     overrides?.subscriptionService ?? mockSubscriptionService as any,
     overrides?.shadowReferral ?? mockShadowReferral as any,
     overrides?.wisdomCard ?? mockWisdomCard as any,
+    overrides?.programService ?? mockProgramService as any,
   );
 }
 

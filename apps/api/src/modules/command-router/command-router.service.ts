@@ -26,6 +26,7 @@ import { OutreachProducer } from '../outreach/infrastructure/queues/outreach.pro
 import { SubscriptionService, SUBSCRIPTION_PLANS } from '../billing/domain/services/subscription.service';
 import { ShadowReferralService } from '../referral/domain/services/shadow-referral.service';
 import { WisdomCardService } from '../referral/domain/services/wisdom-card.service';
+import { ProgramService } from '../programs/domain/services/program.service';
 import { ActiveRole, ResponseFormat, SubscriptionTier } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
@@ -58,6 +59,7 @@ export class CommandRouterService {
     private readonly subscriptionService: SubscriptionService,
     private readonly shadowReferral: ShadowReferralService,
     private readonly wisdomCard: WisdomCardService,
+    private readonly programService: ProgramService,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -154,6 +156,17 @@ export class CommandRouterService {
           return this.handleWisdomCard(userId);
         }
 
+        // Program callbacks: "prog_start:cbt_anxiety_6w", "prog_today:cbt_anxiety_6w", "prog_done:cbt_anxiety_6w"
+        if (payload.startsWith('prog_start:')) {
+          return this.handleProgramStart(userId, payload.slice(11));
+        }
+        if (payload.startsWith('prog_today:')) {
+          return this.handleProgramToday(userId, payload.slice(11));
+        }
+        if (payload.startsWith('prog_done:')) {
+          return this.handleProgramComplete(userId, payload.slice(10));
+        }
+
         // Command redirect callback: "cmd:roles" / "cmd:format"
         if (payload.startsWith('cmd:')) {
           const redirectCmd = payload.slice(4);
@@ -242,6 +255,9 @@ export class CommandRouterService {
 
       case 'gift_session':
         return this.handleGiftSession(userId);
+
+      case 'programs':
+        return this.handlePrograms(userId);
 
       case 'topics':
         return this.handleTopics();
@@ -1159,6 +1175,137 @@ export class CommandRouterService {
       inputType: 'button',
     });
   }
+
+  // ===================== PROGRAMS =====================
+
+  private async handlePrograms(userId: string): Promise<CommandResponse> {
+    // Check subscription — programs are Premium+ only
+    const sub = await this.subscriptionService.getSubscription(userId);
+    if (sub.tier !== SubscriptionTier.PREMIUM_PLUS && sub.tier !== SubscriptionTier.PREMIUM) {
+      return this.buildResponse({
+        text:
+          '🧠 Terapiya proqramları Premium abunəliklə mövcuddur.\n\n' +
+          'Strukturlaşdırılmış KBT və DBT kursları ilə özünü inkişaf etdir!\n\n' +
+          '/subscribe — Planları gör',
+        options: [
+          { id: 'sub', label: '💎 Premium-a keç', value: 'sub:premium' },
+        ],
+        inputType: 'button',
+      });
+    }
+
+    // Show active programs + available programs
+    const active = await this.programService.getActivePrograms(userId);
+    const available = this.programService.getAvailablePrograms();
+
+    const parts: string[] = ['🧠 Terapiya proqramları:\n'];
+
+    if (active.length > 0) {
+      parts.push('--- Aktiv proqramlar ---');
+      for (const p of active) {
+        const bar = '█'.repeat(Math.round(p.progressPercent / 10)) + '░'.repeat(10 - Math.round(p.progressPercent / 10));
+        parts.push(`${p.programName}\n${bar} ${p.progressPercent}% | Həftə ${p.currentWeek}, Gün ${p.currentDay}`);
+      }
+      parts.push('');
+    }
+
+    parts.push('--- Mövcud proqramlar ---');
+    for (const p of available) {
+      const isActive = active.some((a) => a.programId === p.id);
+      const status = isActive ? ' (aktiv)' : '';
+      parts.push(`${p.name}${status}\n  ${p.description}\n  ${p.totalWeeks} həftə | ${p.approach.toUpperCase()}`);
+    }
+
+    const options = [];
+    for (const p of available) {
+      const isActive = active.some((a) => a.programId === p.id);
+      if (isActive) {
+        options.push({ id: p.id, label: `▶️ ${p.name} — Bugünkü məşq`, value: `prog_today:${p.id}` });
+      } else {
+        options.push({ id: p.id, label: `🚀 ${p.name} — Başla`, value: `prog_start:${p.id}` });
+      }
+    }
+    options.push({ id: 'hide', label: 'Gizlət', value: 'hide' });
+
+    return this.buildResponse({ text: parts.join('\n'), options, inputType: 'button' });
+  }
+
+  private async handleProgramStart(userId: string, programId: string): Promise<CommandResponse> {
+    try {
+      const progress = await this.programService.startProgram(userId, programId);
+      return this.buildResponse({
+        text:
+          `🚀 Proqram başladı: ${progress.programName}\n\n` +
+          `${progress.totalWeeks} həftə, ${progress.totalDays} gün\n\n` +
+          `Bugünkü məşqə başlamaq üçün düyməni bas 👇`,
+        options: [
+          { id: 'today', label: '▶️ Bugünkü məşq', value: `prog_today:${programId}` },
+        ],
+        inputType: 'button',
+      });
+    } catch (err) {
+      return this.buildResponse({ text: `⚠️ ${(err as Error).message}`, inputType: 'text' });
+    }
+  }
+
+  private async handleProgramToday(userId: string, programId: string): Promise<CommandResponse> {
+    const exercise = await this.programService.getTodayExercise(userId, programId);
+    if (!exercise) {
+      return this.buildResponse({
+        text: 'Bugünkü məşq tapılmadı. Proqram tamamlanıb və ya aktiv deyil.',
+        inputType: 'text',
+      });
+    }
+
+    return this.buildResponse({
+      text:
+        `📖 ${exercise.programName}\n` +
+        `Həftə ${exercise.week}: ${exercise.weekTitle}\n` +
+        `Gün ${exercise.day}: ${exercise.dayTitle}\n\n` +
+        `🏋️ ${exercise.exerciseTitle}\n` +
+        `${exercise.exerciseDescription}\n\n` +
+        `⏱ ${exercise.durationMinutes} dəqiqə | ${exercise.type}\n\n` +
+        `Hazır olduqda mənə yaz — birlikdə edəcəyik 💛\n` +
+        `Bitirdikdən sonra "Tamamla" düyməsini bas.`,
+      options: [
+        { id: 'done', label: '✅ Tamamla', value: `prog_done:${programId}` },
+      ],
+      inputType: 'button',
+    });
+  }
+
+  private async handleProgramComplete(userId: string, programId: string): Promise<CommandResponse> {
+    try {
+      const result = await this.programService.completeDay(userId, programId);
+
+      if (result.completed) {
+        return this.buildResponse({
+          text:
+            `🎉 Təbrik! ${result.progress.programName} proqramını tamamladın!\n\n` +
+            `${result.progress.completedDays}/${result.progress.totalDays} gün\n\n` +
+            `Bu böyük uğurdur! 💛\n\n` +
+            `/programs — Başqa proqram seç`,
+          inputType: 'text',
+        });
+      }
+
+      const bar = '█'.repeat(Math.round(result.progress.progressPercent / 10)) + '░'.repeat(10 - Math.round(result.progress.progressPercent / 10));
+
+      return this.buildResponse({
+        text:
+          `✅ Gün tamamlandı!\n\n` +
+          `${result.progress.programName}\n` +
+          `${bar} ${result.progress.progressPercent}%\n` +
+          `Növbəti: Həftə ${result.progress.currentWeek}, Gün ${result.progress.currentDay}\n\n` +
+          `Sabah davam edəcəyik 💛`,
+        inputType: 'text',
+      });
+    } catch (err) {
+      return this.buildResponse({ text: `⚠️ ${(err as Error).message}`, inputType: 'text' });
+    }
+  }
+
+  // ===================== SHADOW REFERRAL =====================
 
   private async handleGiftSession(userId: string): Promise<CommandResponse> {
     try {
