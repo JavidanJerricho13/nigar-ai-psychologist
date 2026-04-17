@@ -44,11 +44,12 @@ export class BotService implements OnModuleDestroy {
     await this.bot.api.deleteWebhook();
 
     this.bot.start({
-      onStart: (botInfo) => {
+      onStart: async (botInfo) => {
         this.running = true;
         this.logger.log(
           `🤖 Bot started in POLLING mode as @${botInfo.username}`,
         );
+        await this.setupMenuButton();
       },
     });
   }
@@ -84,6 +85,37 @@ export class BotService implements OnModuleDestroy {
     this.logger.log(
       `🌐 Bot started in WEBHOOK mode at ${webhookUrl} (port ${port})`,
     );
+    await this.setupMenuButton();
+  }
+
+  // ===================== MENU BUTTON =====================
+
+  /**
+   * Set the Chat Menu Button to open the Telegram Mini App.
+   * This adds a button in the bot's chat input area that opens the TWA.
+   */
+  private async setupMenuButton(): Promise<void> {
+    const miniAppUrl = this.config.WEBHOOK_DOMAIN
+      ? `${this.config.WEBHOOK_DOMAIN}/mini-app/index.html`
+      : null;
+
+    if (!miniAppUrl) {
+      this.logger.debug('No WEBHOOK_DOMAIN configured — skipping Menu Button setup');
+      return;
+    }
+
+    try {
+      await this.bot.api.setChatMenuButton({
+        menu_button: {
+          type: 'web_app',
+          text: '📊 İrəliləyiş',
+          web_app: { url: miniAppUrl },
+        },
+      });
+      this.logger.log(`Menu button set: ${miniAppUrl}`);
+    } catch (err) {
+      this.logger.warn(`Failed to set menu button: ${(err as Error).message}`);
+    }
   }
 
   // ===================== ERROR HANDLING =====================
