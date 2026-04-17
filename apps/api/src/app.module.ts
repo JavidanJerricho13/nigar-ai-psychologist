@@ -17,6 +17,7 @@ import { ReferralModule } from './modules/referral/referral.module';
 import { AlertingModule } from './modules/alerting/alerting.module';
 import { MemoryModule } from './modules/memory/memory.module';
 import { OutreachModule } from './modules/outreach/outreach.module';
+import { MiniAppModule } from './modules/mini-app/mini-app.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -44,6 +45,7 @@ import { HealthController } from './health.controller';
     AlertingModule,
     MemoryModule,
     OutreachModule,
+    MiniAppModule,
   ],
   controllers: [HealthController],
   providers: [

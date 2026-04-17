@@ -1,0 +1,6 @@
+{
+  "name": "@nigar/mini-app",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Telegram Mini App (TWA) for Nigar AI — mood calendar, journal, profile"
+}

@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="az">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nigar AI — Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --bg: var(--tg-theme-bg-color, #ffffff);
+      --text: var(--tg-theme-text-color, #1a1a2e);
+      --hint: var(--tg-theme-hint-color, #999999);
+      --link: var(--tg-theme-link-color, #6c63ff);
+      --btn: var(--tg-theme-button-color, #6c63ff);
+      --btn-text: var(--tg-theme-button-text-color, #ffffff);
+      --secondary-bg: var(--tg-theme-secondary-bg-color, #f0f0f5);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      margin-bottom: 20px;
+      background: var(--secondary-bg);
+      border-radius: 12px;
+      padding: 4px;
+    }
+    .tab {
+      flex: 1;
+      padding: 10px 8px;
+      border: none;
+      background: transparent;
+      color: var(--hint);
+      font-size: 13px;
+      font-weight: 600;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .tab.active {
+      background: var(--bg);
+      color: var(--text);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+
+    .section { display: none; }
+    .section.active { display: block; }
+
+    .card {
+      background: var(--secondary-bg);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 12px;
+    }
+    .card-title {
+      font-size: 13px;
+      color: var(--hint);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+    .card-value {
+      font-size: 28px;
+      font-weight: 700;
+    }
+    .card-subtitle { font-size: 13px; color: var(--hint); }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .stat-row .card { flex: 1; text-align: center; }
+    .stat-row .card-value { font-size: 22px; }
+
+    .mood-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 12px;
+    }
+    .mood-cell {
+      aspect-ratio: 1;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: white;
+    }
+    .mood-cell.empty { background: var(--secondary-bg); color: var(--hint); }
+    .day-labels {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-bottom: 4px;
+    }
+    .day-label {
+      text-align: center;
+      font-size: 10px;
+      color: var(--hint);
+      font-weight: 600;
+    }
+
+    .session-item {
+      padding: 12px 0;
+      border-bottom: 1px solid var(--secondary-bg);
+    }
+    .session-item:last-child { border-bottom: none; }
+    .session-date { font-size: 12px; color: var(--hint); }
+    .session-mood { font-size: 14px; font-weight: 600; }
+    .session-topics {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .topic-tag {
+      background: var(--secondary-bg);
+      color: var(--hint);
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+    }
+    .session-summary { font-size: 13px; margin-top: 6px; }
+
+    .profile-list { list-style: none; }
+    .profile-list li {
+      padding: 6px 0;
+      font-size: 14px;
+    }
+    .profile-label {
+      font-size: 12px;
+      color: var(--hint);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 40px;
+      color: var(--hint);
+    }
+    .error { color: #e74c3c; text-align: center; padding: 20px; }
+
+    .trend-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .trend-improving { background: #e8f5e9; color: #2e7d32; }
+    .trend-declining { background: #fce4ec; color: #c62828; }
+    .trend-stable { background: #e3f2fd; color: #1565c0; }
+  </style>
+</head>
+<body>
+  <div class="tabs">
+    <button class="tab active" data-tab="mood">Əhval</button>
+    <button class="tab" data-tab="journal">Jurnal</button>
+    <button class="tab" data-tab="profile">Profil</button>
+  </div>
+
+  <div id="mood-section" class="section active">
+    <div class="loading" id="mood-loading">Yüklənir...</div>
+    <div id="mood-content" style="display:none"></div>
+  </div>
+
+  <div id="journal-section" class="section">
+    <div class="loading" id="journal-loading">Yüklənir...</div>
+    <div id="journal-content" style="display:none"></div>
+  </div>
+
+  <div id="profile-section" class="section">
+    <div class="loading" id="profile-loading">Yüklənir...</div>
+    <div id="profile-content" style="display:none"></div>
+  </div>
+
+  <script>
+    const tg = window.Telegram.WebApp;
+    tg.ready();
+    tg.expand();
+
+    const API_BASE = window.location.origin;
+    const telegramId = tg.initDataUnsafe?.user?.id || '';
+
+    // Tab switching
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.tab + '-section').classList.add('active');
+      });
+    });
+
+    function moodColor(score) {
+      if (score >= 8) return '#4caf50';
+      if (score >= 6) return '#8bc34a';
+      if (score >= 4) return '#ff9800';
+      if (score >= 2) return '#f44336';
+      return '#9e9e9e';
+    }
+
+    function moodEmoji(score) {
+      const map = { 1:'😰', 2:'😢', 3:'😔', 4:'😟', 5:'😐', 6:'🙂', 7:'😊', 8:'😄', 9:'😁', 10:'🤩' };
+      return map[score] || '😐';
+    }
+
+    async function fetchJSON(path) {
+      const res = await fetch(`${API_BASE}${path}?telegramId=${telegramId}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    // Mood calendar
+    async function loadMood() {
+      try {
+        const data = await fetchJSON('/api/v1/mini-app/mood');
+        const container = document.getElementById('mood-content');
+
+        // Stats row
+        const trendClass = `trend-${data.trend.direction}`;
+        const trendLabel = data.trend.direction === 'improving' ? 'Yaxşılaşır' :
+                          data.trend.direction === 'declining' ? 'Pisləşir' : 'Sabit';
+
+        let html = `
+          <div class="stat-row">
+            <div class="card">
+              <div class="card-title">Orta əhval</div>
+              <div class="card-value">${data.trend.average || '—'}</div>
+              <div class="card-subtitle">/10</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Trend</div>
+              <div class="card-value"><span class="trend-badge ${trendClass}">${trendLabel}</span></div>
+            </div>
+            <div class="card">
+              <div class="card-title">Qeydlər</div>
+              <div class="card-value">${data.trend.totalEntries}</div>
+            </div>
+          </div>
+        `;
+
+        // Mood calendar grid (last 28 days)
+        html += '<div class="card"><div class="card-title">Son 28 gün</div>';
+        html += '<div class="day-labels">';
+        ['B.e', 'Ç.a', 'Ç', 'C.a', 'C', 'Ş', 'B'].forEach(d => {
+          html += `<div class="day-label">${d}</div>`;
+        });
+        html += '</div><div class="mood-grid">';
+
+        const entryMap = {};
+        data.entries.forEach(e => { entryMap[e.date] = e; });
+
+        const today = new Date();
+        const startDay = new Date(today);
+        startDay.setDate(today.getDate() - 27);
+        // Align to Monday
+        while (startDay.getDay() !== 1) startDay.setDate(startDay.getDate() - 1);
+
+        for (let i = 0; i < 35; i++) {
+          const d = new Date(startDay);
+          d.setDate(startDay.getDate() + i);
+          const key = d.toISOString().split('T')[0];
+          const entry = entryMap[key];
+
+          if (d > today) {
+            html += '<div class="mood-cell empty"></div>';
+          } else if (entry) {
+            html += `<div class="mood-cell" style="background:${moodColor(entry.score)}" title="${entry.emotion}">${entry.score}</div>`;
+          } else {
+            html += '<div class="mood-cell empty">·</div>';
+          }
+        }
+
+        html += '</div></div>';
+
+        container.innerHTML = html;
+        container.style.display = 'block';
+        document.getElementById('mood-loading').style.display = 'none';
+      } catch (err) {
+        document.getElementById('mood-loading').innerHTML = `<div class="error">Məlumat yüklənmədi</div>`;
+      }
+    }
+
+    // Journal
+    async function loadJournal() {
+      try {
+        const data = await fetchJSON('/api/v1/mini-app/journal');
+        const container = document.getElementById('journal-content');
+
+        if (data.sessions.length === 0) {
+          container.innerHTML = '<div class="card">Hələ sessiya yoxdur. Nigar ilə söhbət et!</div>';
+        } else {
+          let html = '';
+          data.sessions.forEach(s => {
+            html += `<div class="session-item">
+              <div class="session-date">${s.date}</div>
+              <div class="session-mood">${moodEmoji(s.moodScore)} ${s.moodScore}/10 — ${s.emotion || ''}</div>
+              <div class="session-topics">${s.topics.map(t => `<span class="topic-tag">${t}</span>`).join('')}</div>
+              <div class="session-summary">${s.summary}</div>
+            </div>`;
+          });
+          container.innerHTML = `<div class="card">${html}</div>`;
+        }
+
+        container.style.display = 'block';
+        document.getElementById('journal-loading').style.display = 'none';
+      } catch (err) {
+        document.getElementById('journal-loading').innerHTML = '<div class="error">Məlumat yüklənmədi</div>';
+      }
+    }
+
+    // Profile
+    async function loadProfile() {
+      try {
+        const data = await fetchJSON('/api/v1/mini-app/profile');
+        const container = document.getElementById('profile-content');
+        const p = data.therapeuticProfile;
+        const s = data.streak;
+
+        let html = `
+          <div class="stat-row">
+            <div class="card">
+              <div class="card-title">Streak</div>
+              <div class="card-value">🔥 ${s.current}</div>
+              <div class="card-subtitle">gün</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Ən uzun</div>
+              <div class="card-value">🏆 ${s.longest}</div>
+              <div class="card-subtitle">gün</div>
+            </div>
+            <div class="card">
+              <div class="card-title">Cəmi</div>
+              <div class="card-value">${s.totalSessions}</div>
+              <div class="card-subtitle">sessiya</div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Plan</div>
+            <div style="font-size:16px;font-weight:600">${data.subscription.planName}</div>
+          </div>
+        `;
+
+        const sections = [
+          { label: 'Narahatlıqlar', items: p.concerns, emoji: '😟' },
+          { label: 'Triggerlər', items: p.triggers, emoji: '⚡' },
+          { label: 'Güclü tərəflər', items: p.strengths, emoji: '💪' },
+          { label: 'Hədəflər', items: p.goals, emoji: '🎯' },
+          { label: 'Baş çıxma', items: p.copingMethods, emoji: '🧘' },
+        ];
+
+        sections.forEach(sec => {
+          if (sec.items && sec.items.length > 0) {
+            html += `<div class="card">
+              <div class="card-title">${sec.emoji} ${sec.label}</div>
+              <ul class="profile-list">${sec.items.map(i => `<li>${i}</li>`).join('')}</ul>
+            </div>`;
+          }
+        });
+
+        if (p.progressNotes) {
+          html += `<div class="card">
+            <div class="card-title">Son qeyd</div>
+            <div style="font-size:14px">${p.progressNotes}</div>
+          </div>`;
+        }
+
+        container.innerHTML = html;
+        container.style.display = 'block';
+        document.getElementById('profile-loading').style.display = 'none';
+      } catch (err) {
+        document.getElementById('profile-loading').innerHTML = '<div class="error">Məlumat yüklənmədi</div>';
+      }
+    }
+
+    // Load all data
+    loadMood();
+    loadJournal();
+    loadProfile();
+  </script>
+</body>
+</html>
