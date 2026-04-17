@@ -18,7 +18,8 @@ import { ReferralModule } from './modules/referral/referral.module';
 import { AlertingModule } from './modules/alerting/alerting.module';
 import { MemoryModule } from './modules/memory/memory.module';
 import { OutreachModule } from './modules/outreach/outreach.module';
-import { MiniAppModule } from './modules/mini-app/mini-app.module';
+// MiniAppModule — disabled for initial launch, will be re-enabled when frontend is ready
+// import { MiniAppModule } from './modules/mini-app/mini-app.module';
 import { ProgramsModule } from './modules/programs/programs.module';
 import { HealthController } from './health.controller';
 
@@ -52,7 +53,7 @@ import { HealthController } from './health.controller';
     AlertingModule,
     MemoryModule,
     OutreachModule,
-    MiniAppModule,
+    // MiniAppModule,
     ProgramsModule,
   ],
   controllers: [HealthController],

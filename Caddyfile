@@ -1,0 +1,42 @@
+# Nigar AI — Caddy config (production)
+# Handles HTTPS (auto Let's Encrypt) and reverse proxy to the API container.
+
+{$DOMAIN} {
+    # API routes
+    handle /api/v1/* {
+        reverse_proxy api:3000
+    }
+
+    # Stripe webhook (no api/v1 prefix)
+    handle /webhook/* {
+        reverse_proxy api:3000
+    }
+
+    # Health check
+    handle /health {
+        reverse_proxy api:3000
+    }
+
+    # Landing page (optional — can be replaced with a static file)
+    handle {
+        respond "Nigar AI Psychologist" 200
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    # Logs
+    log {
+        output file /data/access.log {
+            roll_size 10MB
+            roll_keep 5
+        }
+        format json
+    }
+}

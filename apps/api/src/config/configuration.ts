@@ -25,6 +25,8 @@ const envSchema = z.object({
   ADMIN_TG_ID: z.string().optional(),
   ALERT_DEBUG_TOKEN: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
+  // Production: comma-separated list of allowed CORS origins (e.g. "https://mydomain.com")
+  CORS_ORIGINS: z.string().optional(),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;
