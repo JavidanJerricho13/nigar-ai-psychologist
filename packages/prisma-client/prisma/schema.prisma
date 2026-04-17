@@ -60,17 +60,23 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
-  referrer        User?            @relation("UserReferrals", fields: [referredBy], references: [id])
-  referredUsers   User[]           @relation("UserReferrals")
-  profile         UserProfile?
-  settings        UserSettings?
-  credits         Credit?
-  onboardingState OnboardingState?
-  conversations   Conversation[]
-  transactions    Transaction[]
-  referralsMade   Referral[]       @relation("ReferrerReferrals")
-  referralsFrom   Referral[]       @relation("ReferredReferrals")
-  crisisEvents    CrisisEvent[]
+  referrer               User?                  @relation("UserReferrals", fields: [referredBy], references: [id])
+  referredUsers          User[]                 @relation("UserReferrals")
+  profile                UserProfile?
+  settings               UserSettings?
+  credits                Credit?
+  onboardingState        OnboardingState?
+  conversations          Conversation[]
+  transactions           Transaction[]
+  referralsMade          Referral[]             @relation("ReferrerReferrals")
+  referralsFrom          Referral[]             @relation("ReferredReferrals")
+  crisisEvents           CrisisEvent[]
+  conversationSummaries  ConversationSummary[]
+  moodEntries            MoodEntry[]
+  therapeuticProfile     TherapeuticProfile?
+  streak                 UserStreak?
+  outreachSettings       UserOutreachSettings?
+  outreachLogs           OutreachLog[]
 
   @@index([referredBy])
   @@map("users")
@@ -115,8 +121,9 @@ model Conversation {
   startedAt    DateTime   @default(now()) @map("started_at")
   endedAt      DateTime?  @map("ended_at")
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages Message[]
+  summary  ConversationSummary?
 
   @@index([userId, startedAt(sort: Desc)])
   @@map("conversations")
@@ -222,4 +229,100 @@ model AdminAction {
   createdAt  DateTime @default(now()) @map("created_at")
 
   @@map("admin_actions")
+}
+
+// ===================== MEMORY & THERAPEUTIC PROFILE =====================
+
+model ConversationSummary {
+  id              String   @id @default(uuid()) @db.Uuid
+  conversationId  String   @unique @map("conversation_id") @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  summary         String   // encrypted text summary of the session
+  moodScore       Int?     @map("mood_score") // 1-10
+  dominantEmotion String?  @map("dominant_emotion") @db.VarChar(50)
+  topicsDiscussed String[] @map("topics_discussed")
+  messageCount    Int      @map("message_count")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("conversation_summaries")
+}
+
+model MoodEntry {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  score           Int      // 1-10
+  dominantEmotion String   @map("dominant_emotion") @db.VarChar(50)
+  source          String   @default("auto") @db.VarChar(20) // "auto" | "self_report"
+  conversationId  String?  @map("conversation_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("mood_entries")
+}
+
+model TherapeuticProfile {
+  id            String   @id @default(uuid()) @db.Uuid
+  userId        String   @unique @map("user_id") @db.Uuid
+  concerns      String[] @default([])
+  triggers      String[] @default([])
+  strengths     String[] @default([])
+  goals         String[] @default([])
+  copingMethods String[] @default([]) @map("coping_methods")
+  progressNotes String?  @map("progress_notes")
+  version       Int      @default(1)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("therapeutic_profiles")
+}
+
+model UserStreak {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @unique @map("user_id") @db.Uuid
+  currentStreak   Int       @default(0) @map("current_streak")
+  longestStreak   Int       @default(0) @map("longest_streak")
+  lastSessionDate DateTime? @map("last_session_date")
+  totalSessions   Int       @default(0) @map("total_sessions")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_streaks")
+}
+
+// ===================== OUTREACH & ENGAGEMENT =====================
+
+model OutreachLog {
+  id     String   @id @default(uuid()) @db.Uuid
+  userId String   @map("user_id") @db.Uuid
+  type   String   @db.VarChar(50) // "check_in" | "weekly_mood" | "crisis_follow_up" | "milestone"
+  message String
+  sentAt DateTime @default(now()) @map("sent_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, sentAt(sort: Desc)])
+  @@map("outreach_logs")
+}
+
+model UserOutreachSettings {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @unique @map("user_id") @db.Uuid
+  muted     Boolean   @default(false)
+  mutedUntil DateTime? @map("muted_until")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_outreach_settings")
 }
