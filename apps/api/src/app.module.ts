@@ -15,6 +15,7 @@ import { AudioModule } from './modules/audio/audio.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { ReferralModule } from './modules/referral/referral.module';
 import { AlertingModule } from './modules/alerting/alerting.module';
+import { MemoryModule } from './modules/memory/memory.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -40,6 +41,7 @@ import { HealthController } from './health.controller';
     BillingModule,
     ReferralModule,
     AlertingModule,
+    MemoryModule,
   ],
   controllers: [HealthController],
   providers: [
