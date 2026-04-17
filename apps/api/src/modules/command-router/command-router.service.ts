@@ -24,6 +24,8 @@ import { MoodExtractionService } from '../memory/domain/services/mood-extraction
 import { StreakService } from '../memory/domain/services/streak.service';
 import { OutreachProducer } from '../outreach/infrastructure/queues/outreach.producer';
 import { SubscriptionService, SUBSCRIPTION_PLANS } from '../billing/domain/services/subscription.service';
+import { ShadowReferralService } from '../referral/domain/services/shadow-referral.service';
+import { WisdomCardService } from '../referral/domain/services/wisdom-card.service';
 import { ActiveRole, ResponseFormat, SubscriptionTier } from '@nigar/shared-types';
 import type { StepOutput, UserInput } from '@nigar/shared-types';
 
@@ -54,6 +56,8 @@ export class CommandRouterService {
     private readonly streakService: StreakService,
     private readonly outreachProducer: OutreachProducer,
     private readonly subscriptionService: SubscriptionService,
+    private readonly shadowReferral: ShadowReferralService,
+    private readonly wisdomCard: WisdomCardService,
   ) {}
 
   async dispatch(request: CommandRequest): Promise<CommandResponse> {
@@ -67,16 +71,24 @@ export class CommandRouterService {
       });
       const userId = user.id;
 
-      // 1b. Apply referral if new user arrived via deep link
+      // 1b. Apply referral or anonymous gift if new user arrived via deep link
       if (isNew && request.deepLinkParam) {
-        try {
-          await this.applyReferral.execute({
-            referredUserId: userId,
-            referralCode: request.deepLinkParam,
-          });
-          this.logger.log(`Referral applied for new user ${userId.slice(0, 8)}`);
-        } catch {
-          // Non-critical — referral code might be invalid or self-referral
+        const param = request.deepLinkParam;
+        if (param.startsWith('gift_')) {
+          // Anonymous gift invite
+          try {
+            await this.shadowReferral.claimInvite(param.slice(5), userId);
+            this.logger.log(`Anonymous gift claimed for new user ${userId.slice(0, 8)}`);
+          } catch { /* non-critical */ }
+        } else {
+          // Standard referral code
+          try {
+            await this.applyReferral.execute({
+              referredUserId: userId,
+              referralCode: param,
+            });
+            this.logger.log(`Referral applied for new user ${userId.slice(0, 8)}`);
+          } catch { /* non-critical */ }
         }
       }
 
@@ -135,6 +147,11 @@ export class CommandRouterService {
         // Subscription callback: "sub:premium" / "sub:premium_plus"
         if (payload.startsWith('sub:')) {
           return this.handleSubCallback(userId, payload.slice(4));
+        }
+
+        // Wisdom card callback: "wisdom_card"
+        if (payload === 'wisdom_card') {
+          return this.handleWisdomCard(userId);
         }
 
         // Command redirect callback: "cmd:roles" / "cmd:format"
@@ -223,6 +240,9 @@ export class CommandRouterService {
       case 'subscribe':
         return this.handleSubscribe(userId, request);
 
+      case 'gift_session':
+        return this.handleGiftSession(userId);
+
       case 'topics':
         return this.handleTopics();
 
@@ -274,6 +294,19 @@ export class CommandRouterService {
         text: `✅ Ödəniş uğurla tamamlandı!\n\n💳 Cari balans: ${balance.balance} kredit\n\nİndi mənə yaz — söhbətimizə davam edək! 💬`,
         inputType: 'text',
       });
+    }
+
+    // Handle anonymous gift invite deep links
+    if (deepLink.startsWith('gift_')) {
+      const giftCode = deepLink.slice(5);
+      const claimed = await this.shadowReferral.claimInvite(giftCode, userId);
+      if (claimed) {
+        return this.buildResponse({
+          text: `🎁 Təbrik! Sənə pulsuz sessiya hədiyyə edildi!\n\n+3 kredit hesabına əlavə olundu.\nBir yaxının sənə Nigar-ı tövsiyə etdi 💛\n\nMənə yaz — söhbətimizə başlayaq!`,
+          inputType: 'text',
+        });
+      }
+      // Invalid/expired/already claimed — fall through to normal start
     }
 
     if (deepLink === 'sub_success') {
@@ -667,7 +700,13 @@ export class CommandRouterService {
     }
 
     return {
-      output: { text: result.reply, inputType: 'text' },
+      output: {
+        text: result.reply,
+        inputType: 'text',
+        options: [
+          { id: 'wisdom', label: '💡 Paylaş', value: 'wisdom_card' },
+        ],
+      },
       isOnboarding: false,
       meta: {
         conversationId: result.conversationId,
@@ -1118,6 +1157,78 @@ export class CommandRouterService {
       text: parts.join('\n'),
       options,
       inputType: 'button',
+    });
+  }
+
+  private async handleGiftSession(userId: string): Promise<CommandResponse> {
+    try {
+      const result = await this.shadowReferral.createInvite(userId);
+      return this.buildResponse({
+        text:
+          `🎁 Anonim sessiya hədiyyəsi yaradıldı!\n\n` +
+          `Bu linki yaxınına göndər — o bilməyəcək ki, sən göndərmisən:\n\n` +
+          `👉 ${result.deepLink}\n\n` +
+          `Kod: \`${result.code}\`\n` +
+          `Etibarlılıq: 7 gün\n` +
+          `Aktiv dəvətlər: ${result.activeInvites}/5\n\n` +
+          `Dəvət qəbul olunanda sən 5 kredit qazanacaqsan 💛`,
+        inputType: 'text',
+      });
+    } catch (err) {
+      return this.buildResponse({
+        text: `⚠️ ${(err as Error).message}`,
+        inputType: 'text',
+      });
+    }
+  }
+
+  private async handleWisdomCard(userId: string): Promise<CommandResponse> {
+    // Get the last AI response for this user
+    const lastConv = await this.prisma.conversation.findFirst({
+      where: { userId },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+
+    if (!lastConv) {
+      return this.buildResponse({
+        text: 'Hələ paylaşılacaq bir söhbət yoxdur.',
+        inputType: 'text',
+      });
+    }
+
+    const lastMessage = await this.prisma.message.findFirst({
+      where: { conversationId: lastConv.id, role: 'assistant' },
+      orderBy: { createdAt: 'desc' },
+      select: { content: true },
+    });
+
+    if (!lastMessage) {
+      return this.buildResponse({
+        text: 'Hələ paylaşılacaq bir cavab yoxdur.',
+        inputType: 'text',
+      });
+    }
+
+    // Decrypt and generate wisdom card
+    let content: string;
+    try {
+      const { EncryptionService } = await import('../../common/encryption/encryption.service');
+      // The content is encrypted — we need to pass it as-is to the wisdom card service
+      // which will extract insight from whatever text it gets
+      content = lastMessage.content;
+    } catch {
+      content = lastMessage.content;
+    }
+
+    const card = await this.wisdomCard.generateCard(content);
+
+    return this.buildResponse({
+      text:
+        `💡 Müdriklik kartı:\n\n` +
+        `${card.shareText}\n\n` +
+        `Bu kartı kopyala və dostlarınla paylaş — heç bir şəxsi məlumat yoxdur 🔒`,
+      inputType: 'text',
     });
   }
 

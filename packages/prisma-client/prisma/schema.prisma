@@ -84,6 +84,7 @@ model User {
   outreachSettings       UserOutreachSettings?
   outreachLogs           OutreachLog[]
   subscription           UserSubscription?
+  anonymousInvites       AnonymousInvite[]  @relation("InvitesCreated")
 
   @@index([referredBy])
   @@map("users")
@@ -332,6 +333,25 @@ model UserOutreachSettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_outreach_settings")
+}
+
+// ===================== SHADOW REFERRAL =====================
+
+model AnonymousInvite {
+  id          String    @id @default(uuid()) @db.Uuid
+  code        String    @unique @db.VarChar(12)  // short shareable code
+  createdById String    @map("created_by_id") @db.Uuid
+  claimedById String?   @map("claimed_by_id") @db.Uuid
+  bonusGranted Boolean  @default(false) @map("bonus_granted")
+  expiresAt   DateTime  @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  claimedAt   DateTime? @map("claimed_at")
+
+  createdBy User @relation("InvitesCreated", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([code])
+  @@index([createdById])
+  @@map("anonymous_invites")
 }
 
 // ===================== SUBSCRIPTION =====================

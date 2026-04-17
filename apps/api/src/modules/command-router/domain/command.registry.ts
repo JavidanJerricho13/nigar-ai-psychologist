@@ -38,6 +38,7 @@ export const COMMAND_REGISTRY: CommandDefinition[] = [
   { command: 'referral', handler: 'referral', description: 'Referal proqramı', availableDuringOnboarding: false },
   { command: 'gift', handler: 'gift', description: 'Hədiyyə göndər', availableDuringOnboarding: false },
   { command: 'subscribe', handler: 'subscribe', description: 'Abunəlik planları', availableDuringOnboarding: false },
+  { command: 'gift_session', handler: 'gift_session', description: 'Anonim sessiya hədiyyə et', availableDuringOnboarding: false },
 
   // Content & Features
   { command: 'topics', handler: 'topics', description: 'Mövzu seç', availableDuringOnboarding: false },
