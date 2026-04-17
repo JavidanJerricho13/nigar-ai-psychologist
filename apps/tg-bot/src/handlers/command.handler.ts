@@ -28,7 +28,8 @@ export class CommandHandler {
       'roles', 'settings', 'format', 'info', 'balance', 'pay',
       'credits', 'referral', 'gift', 'topics', 'image', 'tales',
       'art', 'nigar_files', 'progress', 'clear_chat', 'memory',
-      'support', 'about_company', 'b2b', 'other',
+      'mood', 'journal', 'mute', 'unmute', 'subscribe', 'gift_session',
+      'programs', 'support', 'about_company', 'b2b', 'other',
     ];
 
     for (const cmd of commands) {

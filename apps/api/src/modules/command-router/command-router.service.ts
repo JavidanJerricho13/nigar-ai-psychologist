@@ -96,7 +96,14 @@ export class CommandRouterService {
 
       // 2. Check onboarding status
       const onboardingStatus = await this.getOnboardingStatus.execute(userId);
-      const isInOnboarding = !onboardingStatus.completed && onboardingStatus.currentStep !== null;
+      // Compat: old users may have steps from the 13-step flow that no longer exist
+      const validNewSteps = ['mood_check', 'privacy_quick', 'ask_name'];
+      const isOldStep = onboardingStatus.currentStep
+        && !validNewSteps.includes(onboardingStatus.currentStep)
+        && onboardingStatus.currentStep !== 'completed';
+      const isInOnboarding = !onboardingStatus.completed
+        && onboardingStatus.currentStep !== null
+        && !isOldStep;
 
       // 3. Parse command
       const command = this.parseCommand(request.command);
