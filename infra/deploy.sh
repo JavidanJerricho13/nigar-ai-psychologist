@@ -12,8 +12,8 @@ COMPOSE_FILE="docker-compose.prod.yml"
 # API port is not exposed on host — check via Caddy public URL.
 DOMAIN="${DOMAIN:-$(grep -E '^DOMAIN=' "$REPO_DIR/.env" | cut -d= -f2 | tr -d '"' | tr -d ' ')}"
 HEALTH_URL="https://${DOMAIN}/api/v1/health"
-HEALTH_RETRIES=30
-HEALTH_INTERVAL=2
+HEALTH_RETRIES=60
+HEALTH_INTERVAL=3
 
 log() {
   echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
@@ -61,8 +61,9 @@ docker compose -f "$COMPOSE_FILE" build api bot
 log "🚀 Restarting services..."
 docker compose -f "$COMPOSE_FILE" up -d --no-deps api bot
 
-# Health check
-log "🩺 Waiting for API health..."
+# Health check — give containers initial time to start + Caddy to refresh upstream
+log "🩺 Waiting for API health (initial 15s sleep + polling)..."
+sleep 15
 for i in $(seq 1 $HEALTH_RETRIES); do
   if curl -fsS "$HEALTH_URL" > /dev/null 2>&1; then
     log "✅ API healthy after ${i} attempts"
