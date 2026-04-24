@@ -46,29 +46,20 @@
     }
 }
 
-# ==================== ADMIN (subdomain) ====================
-
-{$ADMIN_DOMAIN} {
-    # Extra layer of protection: HTTP Basic Auth on top of AdminJS session auth.
-    # Generate hash with:  docker run --rm caddy:2-alpine caddy hash-password --plaintext 'your_password'
-    basic_auth * {
-        admin {$ADMIN_BASIC_AUTH_HASH}
-    }
-
-    reverse_proxy admin:3001
-
-    header {
-        Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        X-Frame-Options "SAMEORIGIN"
-        X-Content-Type-Options "nosniff"
-        -Server
-    }
-
-    log {
-        output file /data/admin-access.log {
-            roll_size 10MB
-            roll_keep 10
-        }
-        format json
-    }
-}
+# ==================== ADMIN (subdomain) — DISABLED ====================
+# Admin container is temporarily disabled (AdminJS bundler issue in Docker).
+# Re-enable this block + uncomment admin service in docker-compose.prod.yml
+# once the bundling issue is fixed.
+#
+# {$ADMIN_DOMAIN} {
+#     basic_auth * {
+#         admin {$ADMIN_BASIC_AUTH_HASH}
+#     }
+#     reverse_proxy admin:3001
+#     header {
+#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
+#         X-Frame-Options "SAMEORIGIN"
+#         X-Content-Type-Options "nosniff"
+#         -Server
+#     }
+# }

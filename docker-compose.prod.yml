@@ -21,12 +21,15 @@ services:
       - nigar-net
     depends_on:
       - api
-      - admin
     # env_file passes .env values directly without compose interpolation.
     # This is required for ADMIN_BASIC_AUTH_HASH which contains $ characters
     # (bcrypt format $2a$14$...) that compose would otherwise misinterpret.
     env_file:
       - .env
+    # Admin service is temporarily disabled — AdminJS runtime bundler
+    # (babel + rollup + react) needs a specialized Docker setup. Until fixed,
+    # Caddy will return 502 on admin.psixoloq.site. Re-enable by uncommenting
+    # admin service below + dropping `admin` from depends_on → disabled list here.
 
   api:
     build:
@@ -69,21 +72,23 @@ services:
       - redis
       - api
 
-  admin:
-    build:
-      context: .
-      dockerfile: infra/Dockerfile.admin
-    container_name: nigar-admin
-    restart: unless-stopped
-    env_file:
-      - .env
-    environment:
-      - NODE_ENV=production
-      - ADMIN_PORT=3001
-    networks:
-      - nigar-net
-    depends_on:
-      - redis
+  # admin:
+  #   # Temporarily disabled — AdminJS runtime bundler (babel+rollup) needs
+  #   # a specialized Docker setup. Re-enable when the bundling issue is fixed.
+  #   build:
+  #     context: .
+  #     dockerfile: infra/Dockerfile.admin
+  #   container_name: nigar-admin
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   environment:
+  #     - NODE_ENV=production
+  #     - ADMIN_PORT=3001
+  #   networks:
+  #     - nigar-net
+  #   depends_on:
+  #     - redis
 
   redis:
     image: redis:7-alpine
