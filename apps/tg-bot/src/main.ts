@@ -5,8 +5,9 @@ import { BotService } from './adapters/bot.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(BotModule);
-  const botService = app.get(BotService);
+  await app.init(); // required to trigger onModuleInit lifecycle hooks
 
+  const botService = app.get(BotService);
   await botService.launch(app);
 
   // Graceful shutdown
