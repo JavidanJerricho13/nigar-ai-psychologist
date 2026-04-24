@@ -153,6 +153,12 @@ export class CommandRouterService {
           return this.handlePayCallback(userId, payload.slice(4));
         }
 
+        // Response format callback: "format:voice" / "format:text" / "format:voice_and_text"
+        if (payload.startsWith('format:')) {
+          const fmtValue = payload.slice(7);
+          return this.handleFormat(userId, { ...request, payload: fmtValue });
+        }
+
         // Subscription callback: "sub:premium" / "sub:premium_plus"
         if (payload.startsWith('sub:')) {
           return this.handleSubCallback(userId, payload.slice(4));
@@ -541,9 +547,9 @@ export class CommandRouterService {
     return this.buildResponse({
       text: '🎙 Cavab formatını seç:',
       options: [
-        { id: 'voice', label: '🎙 Səs', value: 'voice' },
-        { id: 'text', label: '📝 Mətn', value: 'text' },
-        { id: 'voice_and_text', label: '🎙 Səs + Mətn', value: 'voice_and_text' },
+        { id: 'voice', label: '🎙 Səs', value: 'format:voice' },
+        { id: 'text', label: '📝 Mətn', value: 'format:text' },
+        { id: 'voice_and_text', label: '🎙 Səs + Mətn', value: 'format:voice_and_text' },
       ],
       inputType: 'button',
     });
