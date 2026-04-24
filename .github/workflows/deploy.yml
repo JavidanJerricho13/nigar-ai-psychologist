@@ -31,8 +31,17 @@ jobs:
       - name: Generate Prisma client
         run: pnpm db:generate
 
-      - name: Typecheck
-        run: pnpm typecheck
+      - name: Build shared packages
+        run: |
+          pnpm --filter @nigar/shared-types build
+          pnpm --filter @nigar/prisma-client build
+
+      - name: Typecheck (per-package, bypass turbo)
+        run: |
+          pnpm --filter @nigar/shared-types typecheck
+          pnpm --filter @nigar/prisma-client typecheck
+          pnpm --filter @nigar/api typecheck
+          pnpm --filter @nigar/tg-bot typecheck
 
   deploy:
     name: Deploy to VPS
