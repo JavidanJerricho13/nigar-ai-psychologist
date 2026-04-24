@@ -1,6 +1,7 @@
+import { InputFile } from 'grammy';
 import type { NigarContext } from '../adapters/telegram.adapter';
 import type { CommandResponse } from '../../../api/src/modules/command-router/domain/command.interfaces';
-import { renderStepOutput, RenderedOutput } from './onboarding.renderer';
+import { renderStepOutput } from './onboarding.renderer';
 
 /**
  * Sends a CommandResponse back to the user via Telegram.
@@ -18,13 +19,22 @@ export async function sendCommandResponse(
     // Skip image sending until asset pipeline is ready
   }
 
-  // Send voice if present
-  if (rendered.audioUrl) {
+  // Determine response format to decide text + voice combination
+  const audioBuffer = (response as any).meta?.audioBuffer as Buffer | undefined;
+
+  // Send voice if we have a buffer (TTS result) or an explicit audioUrl
+  if (audioBuffer && audioBuffer.length > 0) {
     try {
-      // audioUrl is either a file_id or a URL to an OGG Opus file
+      await ctx.replyWithVoice(new InputFile(audioBuffer, 'reply.ogg'));
+    } catch (err) {
+      // If voice fails (e.g. network / API), silently fall through — text still below.
+      console.error('[message.renderer] replyWithVoice failed:', (err as Error).message);
+    }
+  } else if (rendered.audioUrl) {
+    try {
       await ctx.replyWithVoice(rendered.audioUrl);
     } catch {
-      // Fallback: audio not available yet
+      // Fallback: audio not available
     }
   }
 
