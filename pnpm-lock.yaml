@@ -10,7 +10,11 @@ overrides:
 
 importers:
 
-  .: {}
+  .:
+    devDependencies:
+      '@babel/plugin-syntax-import-assertions':
+        specifier: ^7.28.6
+        version: 7.28.6(@babel/core@7.29.0)
 
   apps/admin:
     dependencies:

@@ -31,5 +31,8 @@
     "db:migrate": "pnpm --filter @nigar/prisma-client migrate:dev",
     "db:push": "pnpm --filter @nigar/prisma-client db:push",
     "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "@babel/plugin-syntax-import-assertions": "^7.28.6"
   }
 }

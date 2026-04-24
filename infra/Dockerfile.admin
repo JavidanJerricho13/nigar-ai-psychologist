@@ -57,6 +57,4 @@ ENV NODE_ENV=production
 ENV ADMIN_PORT=3001
 EXPOSE 3001
 
-# AdminJS bundler resolves babel plugins relative to CWD, so we run from apps/admin.
-WORKDIR /app/apps/admin
-CMD ["node", "dist/main.js"]
+CMD ["node", "apps/admin/dist/main.js"]
