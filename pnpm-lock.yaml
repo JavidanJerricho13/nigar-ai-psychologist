@@ -23,6 +23,9 @@ importers:
       '@adminjs/prisma':
         specifier: ^5.0.0
         version: 5.0.4(@prisma/client@6.19.3(prisma@6.19.3(typescript@5.9.3))(typescript@5.9.3))(adminjs@7.8.17(@types/babel__core@7.20.5)(@types/react-dom@18.3.7(@types/react@18.3.28))(@types/react@18.3.28))
+      '@babel/plugin-syntax-import-assertions':
+        specifier: ^7.28.6
+        version: 7.28.6(@babel/core@7.29.0)
       '@nigar/prisma-client':
         specifier: workspace:*
         version: link:../../packages/prisma-client

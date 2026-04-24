@@ -46,20 +46,24 @@
     }
 }
 
-# ==================== ADMIN (subdomain) — DISABLED ====================
-# Admin container is temporarily disabled (AdminJS bundler issue in Docker).
-# Re-enable this block + uncomment admin service in docker-compose.prod.yml
-# once the bundling issue is fixed.
-#
-# {$ADMIN_DOMAIN} {
-#     basic_auth * {
-#         admin {$ADMIN_BASIC_AUTH_HASH}
-#     }
-#     reverse_proxy admin:3001
-#     header {
-#         Strict-Transport-Security "max-age=31536000; includeSubDomains"
-#         X-Frame-Options "SAMEORIGIN"
-#         X-Content-Type-Options "nosniff"
-#         -Server
-#     }
-# }
+# ==================== ADMIN (subdomain) ====================
+
+{$ADMIN_DOMAIN} {
+    basic_auth * {
+        admin {$ADMIN_BASIC_AUTH_HASH}
+    }
+    reverse_proxy admin:3001
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Frame-Options "SAMEORIGIN"
+        X-Content-Type-Options "nosniff"
+        -Server
+    }
+    log {
+        output file /data/admin-access.log {
+            roll_size 10MB
+            roll_keep 10
+        }
+        format json
+    }
+}

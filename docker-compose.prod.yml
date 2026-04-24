@@ -21,6 +21,7 @@ services:
       - nigar-net
     depends_on:
       - api
+      - admin
     # env_file passes .env values directly without compose interpolation.
     # This is required for ADMIN_BASIC_AUTH_HASH which contains $ characters
     # (bcrypt format $2a$14$...) that compose would otherwise misinterpret.
@@ -72,23 +73,21 @@ services:
       - redis
       - api
 
-  # admin:
-  #   # Temporarily disabled — AdminJS runtime bundler (babel+rollup) needs
-  #   # a specialized Docker setup. Re-enable when the bundling issue is fixed.
-  #   build:
-  #     context: .
-  #     dockerfile: infra/Dockerfile.admin
-  #   container_name: nigar-admin
-  #   restart: unless-stopped
-  #   env_file:
-  #     - .env
-  #   environment:
-  #     - NODE_ENV=production
-  #     - ADMIN_PORT=3001
-  #   networks:
-  #     - nigar-net
-  #   depends_on:
-  #     - redis
+  admin:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.admin
+    container_name: nigar-admin
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - ADMIN_PORT=3001
+    networks:
+      - nigar-net
+    depends_on:
+      - redis
 
   redis:
     image: redis:7-alpine

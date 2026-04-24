@@ -395,6 +395,14 @@ async function bootstrap() {
     },
   });
 
+  // Pre-bundle UI assets so runtime doesn't need babel/rollup.
+  // In production, watch=false; in dev, AdminJS auto-watches.
+  if (process.env.NODE_ENV === 'production') {
+    await admin.initialize();
+  } else {
+    await admin.watch();
+  }
+
   const router = AdminJSExpress.buildAuthenticatedRouter(
     admin,
     {
