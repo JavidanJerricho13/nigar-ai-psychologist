@@ -43,8 +43,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /app/apps/tg-bot/dist ./apps/tg-bot/dist
 COPY --from=builder /app/apps/tg-bot/package.json ./apps/tg-bot/
-COPY --from=builder /app/apps/api/dist ./apps/api/dist
-COPY --from=builder /app/apps/api/package.json ./apps/api/
+# tg-bot's tsc compiles api source files into its own dist (same-process pattern),
+# so we don't need to copy /app/apps/api/dist separately.
 COPY --from=builder /app/packages/prisma-client/dist ./packages/prisma-client/dist
 COPY --from=builder /app/packages/prisma-client/package.json ./packages/prisma-client/
 COPY --from=builder /app/packages/prisma-client/prisma ./packages/prisma-client/prisma
