@@ -51,13 +51,13 @@ docker run --rm \
   }
 log "✅ DB schema synced"
 
-# Rebuild only changed services
+# Rebuild only changed services (admin disabled — see docker-compose.prod.yml)
 log "🔨 Building Docker images..."
-docker compose -f "$COMPOSE_FILE" build api bot admin
+docker compose -f "$COMPOSE_FILE" build api bot
 
 # Restart with new images (Caddy + Redis untouched)
 log "🚀 Restarting services..."
-docker compose -f "$COMPOSE_FILE" up -d --no-deps api bot admin
+docker compose -f "$COMPOSE_FILE" up -d --no-deps api bot
 
 # Health check
 log "🩺 Waiting for API health..."
