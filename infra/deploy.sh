@@ -9,7 +9,9 @@ set -euo pipefail
 
 REPO_DIR="${REPO_DIR:-$HOME/aipsychologist}"
 COMPOSE_FILE="docker-compose.prod.yml"
-HEALTH_URL="http://localhost:3000/api/v1/health"
+# API port is not exposed on host — check via Caddy public URL.
+DOMAIN="${DOMAIN:-$(grep -E '^DOMAIN=' "$REPO_DIR/.env" | cut -d= -f2 | tr -d '"' | tr -d ' ')}"
+HEALTH_URL="https://${DOMAIN}/api/v1/health"
 HEALTH_RETRIES=30
 HEALTH_INTERVAL=2
 
