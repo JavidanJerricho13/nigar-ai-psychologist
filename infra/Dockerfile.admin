@@ -9,6 +9,9 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/admin/package.json apps/admin/
+COPY apps/api/package.json apps/api/
+COPY apps/tg-bot/package.json apps/tg-bot/
+COPY apps/mini-app/package.json apps/mini-app/
 COPY packages/prisma-client/package.json packages/prisma-client/
 COPY packages/shared-types/package.json packages/shared-types/
 COPY packages/tsconfig/package.json packages/tsconfig/
@@ -25,7 +28,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 RUN pnpm db:generate
-RUN pnpm --filter @nigar/admin build
+RUN pnpm --filter @nigar/shared-types build \
+ && pnpm --filter @nigar/prisma-client build \
+ && pnpm --filter @nigar/admin build
 
 # Stage 3: Runtime
 FROM node:20-slim AS runner

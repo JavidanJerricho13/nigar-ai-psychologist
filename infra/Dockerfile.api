@@ -9,6 +9,9 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/api/package.json apps/api/
+COPY apps/tg-bot/package.json apps/tg-bot/
+COPY apps/admin/package.json apps/admin/
+COPY apps/mini-app/package.json apps/mini-app/
 COPY packages/prisma-client/package.json packages/prisma-client/
 COPY packages/shared-types/package.json packages/shared-types/
 COPY packages/tsconfig/package.json packages/tsconfig/
@@ -28,8 +31,10 @@ COPY . .
 # Generate Prisma client
 RUN pnpm db:generate
 
-# Build all packages
-RUN pnpm build
+# Build packages in dependency order (avoid turbo to keep build image slim)
+RUN pnpm --filter @nigar/shared-types build \
+ && pnpm --filter @nigar/prisma-client build \
+ && pnpm --filter @nigar/api build
 
 # Stage 3: Production image
 FROM node:20-slim AS runner
