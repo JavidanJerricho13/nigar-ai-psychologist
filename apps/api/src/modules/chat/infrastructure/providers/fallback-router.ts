@@ -18,9 +18,9 @@ interface ProviderChain {
 /**
  * Fallback router that tries providers in order.
  *
- * Default chain: Groq (free/fast) → OpenAI → Anthropic → Gemini
+ * Default chain: OpenAI gpt-4o-mini → Groq → Anthropic → Gemini
  * Crisis:        OpenAI GPT-4o → Groq → Anthropic → Gemini
- * Super Nigar:   Anthropic Sonnet → Groq → OpenAI → Gemini
+ * Super Nigar:   Anthropic Sonnet → OpenAI → Groq → Gemini
  */
 @Injectable()
 export class FallbackRouter {
@@ -91,15 +91,16 @@ export class FallbackRouter {
     switch (persona) {
       case ActiveRole.SUPER_NIGAR:
         return {
-          providers: [this.anthropic, this.groq, this.openai, this.gemini],
+          providers: [this.anthropic, this.openai, this.groq, this.gemini],
           defaultModel: 'claude-sonnet-4-5-20250514',
         };
 
       default:
-        // Groq is primary for testing (free, fast)
+        // OpenAI gpt-4o-mini as primary (better understanding of cultural nuance)
+        // with Groq as a fast/free fallback if OpenAI hiccups.
         return {
-          providers: [this.groq, this.openai, this.anthropic, this.gemini],
-          defaultModel: 'llama-3.3-70b-versatile',
+          providers: [this.openai, this.groq, this.anthropic, this.gemini],
+          defaultModel: 'gpt-4o-mini',
         };
     }
   }
