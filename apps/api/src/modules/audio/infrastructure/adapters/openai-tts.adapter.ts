@@ -18,6 +18,8 @@ export class OpenAiTtsAdapter implements TtsProviderPort {
   }
 
   async synthesize(text: string, outputPath: string): Promise<TtsResult> {
+    // Use gpt-4o-mini-tts (newer model with instructions support).
+    // Voice "nova" — warm, female, suitable for empathetic therapy tone.
     const response = await fetch('https://api.openai.com/v1/audio/speech', {
       method: 'POST',
       headers: {
@@ -25,10 +27,12 @@ export class OpenAiTtsAdapter implements TtsProviderPort {
         Authorization: `Bearer ${this.apiKey}`,
       },
       body: JSON.stringify({
-        model: 'tts-1',
+        model: 'gpt-4o-mini-tts',
         input: text,
         voice: 'nova',
+        instructions: 'Speak in a warm, empathetic and friendly tone, as a caring therapist would. Use natural pacing with appropriate pauses for thoughtful delivery.',
         response_format: 'mp3',
+        speed: 1.0,
       }),
     });
 

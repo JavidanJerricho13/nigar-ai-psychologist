@@ -36,11 +36,11 @@ import { TRANSCRIPTION_QUEUE, SYNTHESIS_QUEUE } from './infrastructure/queues/au
     // STT: Whisper
     { provide: STT_PROVIDER, useClass: OpenAiWhisperAdapter },
 
-    // TTS: ElevenLabs primary (swap to OpenAiTtsAdapter for fallback)
-    { provide: TTS_PROVIDER, useClass: ElevenLabsTtsAdapter },
+    // TTS: OpenAI gpt-4o-mini-tts with "nova" voice (no English accent for Azeri)
+    { provide: TTS_PROVIDER, useClass: OpenAiTtsAdapter },
 
-    // Keep OpenAI TTS available for manual fallback
-    OpenAiTtsAdapter,
+    // Keep ElevenLabs available for manual fallback
+    ElevenLabsTtsAdapter,
 
     // Conversion
     FfmpegService,
