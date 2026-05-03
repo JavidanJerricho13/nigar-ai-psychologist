@@ -45,39 +45,39 @@ describe('FallbackRouter', () => {
   });
 
   describe('default routing (Nigar persona)', () => {
-    it('should use Groq as primary with llama-3.3-70b-versatile', async () => {
+    it('should use OpenAI as primary with gpt-4o-mini', async () => {
       const result = await router.complete(baseRequest, ActiveRole.NIGAR);
 
-      expect(groq.complete).toHaveBeenCalledTimes(1);
-      expect(groq.complete).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'llama-3.3-70b-versatile' }),
+      expect(openai.complete).toHaveBeenCalledTimes(1);
+      expect(openai.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-4o-mini' }),
       );
-      expect(result.provider).toBe('groq');
-      expect(openai.complete).not.toHaveBeenCalled();
+      expect(result.provider).toBe('openai');
+      expect(groq.complete).not.toHaveBeenCalled();
     });
 
     it('should use default persona when none specified', async () => {
       await router.complete(baseRequest);
-      expect(groq.complete).toHaveBeenCalledWith(
-        expect.objectContaining({ model: 'llama-3.3-70b-versatile' }),
+      expect(openai.complete).toHaveBeenCalledWith(
+        expect.objectContaining({ model: 'gpt-4o-mini' }),
       );
     });
   });
 
   describe('fallback behavior', () => {
-    it('should fallback to OpenAI when Groq fails', async () => {
-      groq.complete.mockRejectedValue(new Error('Groq 500'));
+    it('should fallback to Groq when OpenAI fails', async () => {
+      openai.complete.mockRejectedValue(new Error('OpenAI 500'));
 
       const result = await router.complete(baseRequest);
 
-      expect(groq.complete).toHaveBeenCalledTimes(1);
       expect(openai.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('openai');
+      expect(groq.complete).toHaveBeenCalledTimes(1);
+      expect(result.provider).toBe('groq');
     });
 
     it('should fallback through full chain when multiple fail', async () => {
-      groq.complete.mockRejectedValue(new Error('Groq down'));
       openai.complete.mockRejectedValue(new Error('OpenAI down'));
+      groq.complete.mockRejectedValue(new Error('Groq down'));
       anthropic.complete.mockRejectedValue(new Error('Anthropic down'));
 
       const result = await router.complete(baseRequest);
@@ -87,8 +87,8 @@ describe('FallbackRouter', () => {
     });
 
     it('should throw when ALL providers fail', async () => {
-      groq.complete.mockRejectedValue(new Error('Groq down'));
       openai.complete.mockRejectedValue(new Error('OpenAI down'));
+      groq.complete.mockRejectedValue(new Error('Groq down'));
       anthropic.complete.mockRejectedValue(new Error('Anthropic down'));
       gemini.complete.mockRejectedValue(new Error('Gemini down'));
 
@@ -98,13 +98,13 @@ describe('FallbackRouter', () => {
     });
 
     it('should skip unavailable providers', async () => {
-      groq.isAvailable.mockResolvedValue(false);
+      openai.isAvailable.mockResolvedValue(false);
 
       const result = await router.complete(baseRequest);
 
-      expect(groq.complete).not.toHaveBeenCalled();
-      expect(openai.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('openai');
+      expect(openai.complete).not.toHaveBeenCalled();
+      expect(groq.complete).toHaveBeenCalledTimes(1);
+      expect(result.provider).toBe('groq');
     });
 
     it('should throw when no providers are available', async () => {
@@ -131,14 +131,14 @@ describe('FallbackRouter', () => {
       expect(result.provider).toBe('anthropic');
     });
 
-    it('should fallback to Groq when Anthropic fails for Super Nigar', async () => {
+    it('should fallback to OpenAI when Anthropic fails for Super Nigar', async () => {
       anthropic.complete.mockRejectedValue(new Error('Anthropic 429'));
 
       const result = await router.complete(baseRequest, ActiveRole.SUPER_NIGAR);
 
       expect(anthropic.complete).toHaveBeenCalledTimes(1);
-      expect(groq.complete).toHaveBeenCalledTimes(1);
-      expect(result.provider).toBe('groq');
+      expect(openai.complete).toHaveBeenCalledTimes(1);
+      expect(result.provider).toBe('openai');
     });
   });
 
@@ -173,12 +173,12 @@ describe('FallbackRouter', () => {
     ];
 
     it.each(nonSuperPersonas)(
-      'should use Groq as primary for %s',
+      'should use OpenAI as primary for %s',
       async (persona) => {
         await router.complete(baseRequest, persona);
-        expect(groq.complete).toHaveBeenCalledTimes(1);
-        expect(groq.complete).toHaveBeenCalledWith(
-          expect.objectContaining({ model: 'llama-3.3-70b-versatile' }),
+        expect(openai.complete).toHaveBeenCalledTimes(1);
+        expect(openai.complete).toHaveBeenCalledWith(
+          expect.objectContaining({ model: 'gpt-4o-mini' }),
         );
       },
     );
