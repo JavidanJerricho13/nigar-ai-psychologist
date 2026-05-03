@@ -102,29 +102,11 @@ export class OnboardingFsm {
 
   /** Build the final summary output when onboarding completes */
   private buildCompletionOutput(state: OnboardingState): StepOutput {
-    const d = state.stepData;
-    const name = (d.name as string) || 'Dostum';
-    const mood = d.initialMood as string | undefined;
-
-    // Empathy-driven completion message based on initial mood
-    let empathyCloser: string;
-    switch (mood) {
-      case 'bad':
-      case 'help':
-        empathyCloser = `${name}, mən buradayam. Nə narahat edir? Danışaq 💛`;
-        break;
-      case 'okay':
-        empathyCloser = `${name}, gəl birlikdə baxaq nələri yaxşılaşdıra bilərik 💛`;
-        break;
-      default:
-        empathyCloser = `${name}, tanış olduğumuza şadam! Nə haqqında danışmaq istəyirsən? 💛`;
-    }
-
+    const name = (state.stepData.name as string) || 'Dostum';
     return {
       text:
-        `✅ Hazırıq, ${name}!\n\n` +
-        `${empathyCloser}\n\n` +
-        `İndi mənə yaz — dinləyirəm.`,
+        `✅ Tanışlıq tamamlandı, ${name}!\n\n` +
+        `İndi mənə yaz — dinləyirəm 💛`,
       inputType: 'text',
     };
   }

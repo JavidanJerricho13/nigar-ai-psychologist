@@ -17,7 +17,7 @@ export class MethodsStep implements StepDefinition {
         `🎨 Yaradıcılıq\n\n` +
         `Dialoqda birlikdə izləyəcəyik ki, nə sənə rahatlıq gətirir ` +
         `və effektiv işləyir.`,
-      imageUrl: 'onboarding/methods.png',
+      imageUrl: 'onboarding/w4.png',
       options: [
         { id: 'credentials', label: 'Maraqlıdır, bütün bunları haradan bilirsən?', value: 'next' },
         { id: 'skip', label: 'Keç', value: 'skip' },

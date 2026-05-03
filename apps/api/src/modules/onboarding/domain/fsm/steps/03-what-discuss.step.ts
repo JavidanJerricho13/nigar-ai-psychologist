@@ -19,7 +19,7 @@ export class WhatDiscussStep implements StepDefinition {
         `... və bir çox digər mövzular.\n\n` +
         `Həmçinin hobbilər, kitablar, oyunlar, incəsənət haqqında da danışa bilərik 🎨📚🎮\n\n` +
         `🎨 /art rejimində art-terapiya ilə yaradıcılığını təhlil edə bilərik.`,
-      imageUrl: 'onboarding/what-discuss.png',
+      imageUrl: 'onboarding/w3.png',
       options: [
         { id: 'methods', label: 'Hansı metodikalardan istifadə edirsən?', value: 'next' },
         { id: 'skip', label: 'Keç', value: 'skip' },

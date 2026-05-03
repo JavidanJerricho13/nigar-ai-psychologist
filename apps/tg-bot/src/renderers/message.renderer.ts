@@ -1,7 +1,24 @@
+import { existsSync } from 'fs';
+import { resolve } from 'path';
 import { InputFile } from 'grammy';
 import type { NigarContext } from '../adapters/telegram.adapter';
 import type { CommandResponse } from '../../../api/src/modules/command-router/domain/command.interfaces';
 import { renderStepOutput } from './onboarding.renderer';
+
+const ASSETS_SEARCH_PATHS = [
+  resolve(__dirname, '..', '..', 'assets'),
+  resolve(process.cwd(), 'apps', 'tg-bot', 'assets'),
+  resolve(process.cwd(), 'assets'),
+];
+const photoFileIdCache = new Map<string, string>();
+
+function resolveAssetPath(ref: string): string | null {
+  for (const root of ASSETS_SEARCH_PATHS) {
+    const candidate = resolve(root, ref);
+    if (existsSync(candidate)) return candidate;
+  }
+  return null;
+}
 
 /**
  * Sends a CommandResponse back to the user via Telegram.
@@ -13,10 +30,8 @@ export async function sendCommandResponse(
 ): Promise<void> {
   const rendered = renderStepOutput(response.output);
 
-  // Send image if present (as photo with caption)
   if (rendered.imageUrl) {
-    // For now, images are asset references — will be URLs or file_ids later
-    // Skip image sending until asset pipeline is ready
+    await sendPhoto(ctx, rendered.imageUrl);
   }
 
   // Determine response format to decide text + voice combination
@@ -55,5 +70,41 @@ export async function answerCallback(ctx: NigarContext): Promise<void> {
     await ctx.answerCallbackQuery();
   } catch {
     // Ignore if already answered or expired
+  }
+}
+
+async function sendPhoto(ctx: NigarContext, ref: string): Promise<void> {
+  if (/^https?:\/\//.test(ref)) {
+    try {
+      await ctx.replyWithPhoto(ref);
+    } catch (err) {
+      console.error('[message.renderer] replyWithPhoto(url) failed:', (err as Error).message);
+    }
+    return;
+  }
+
+  const cached = photoFileIdCache.get(ref);
+  if (cached) {
+    try {
+      await ctx.replyWithPhoto(cached);
+      return;
+    } catch {
+      // file_id might have expired — fall through to upload
+      photoFileIdCache.delete(ref);
+    }
+  }
+
+  const path = resolveAssetPath(ref);
+  if (!path) {
+    console.error(`[message.renderer] Onboarding asset not found: ${ref}`);
+    return;
+  }
+
+  try {
+    const sent = await ctx.replyWithPhoto(new InputFile(path));
+    const photo = sent.photo?.[sent.photo.length - 1];
+    if (photo?.file_id) photoFileIdCache.set(ref, photo.file_id);
+  } catch (err) {
+    console.error('[message.renderer] replyWithPhoto(file) failed:', (err as Error).message);
   }
 }

@@ -13,7 +13,7 @@ export class HeavyWarningStep implements StepDefinition {
         `Əgər sənin həqiqətən çətin bir situasiyan varsa, ` +
         `zəhmət olmasa mütəxəssis-insanlara müraciət et.\n\n` +
         `🆘 Böhran xətti: 860-510-510`,
-      imageUrl: 'onboarding/heavy-warning.png',
+      imageUrl: 'onboarding/w6.png',
       options: [
         { id: 'privacy', label: 'Yaxşı. Bəs məlumatlarım təhlükəsizdir?', value: 'next' },
         { id: 'skip', label: 'Keç', value: 'skip' },

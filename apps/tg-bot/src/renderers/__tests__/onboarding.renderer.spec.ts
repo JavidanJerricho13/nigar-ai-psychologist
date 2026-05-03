@@ -41,11 +41,11 @@ describe('onboarding.renderer', () => {
   it('should include imageUrl when present', () => {
     const rendered = renderStepOutput({
       text: 'Look:',
-      imageUrl: 'onboarding/why-need.png',
+      imageUrl: 'onboarding/w2.png',
       inputType: 'button',
     });
 
-    expect(rendered.imageUrl).toBe('onboarding/why-need.png');
+    expect(rendered.imageUrl).toBe('onboarding/w2.png');
   });
 
   it('should handle empty options array', () => {

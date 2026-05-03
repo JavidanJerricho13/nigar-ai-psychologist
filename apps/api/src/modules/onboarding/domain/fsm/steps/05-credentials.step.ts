@@ -15,7 +15,7 @@ export class CredentialsStep implements StepDefinition {
         `əsasında öyrədilib.\n\n` +
         `Araşdırmalar göstərir ki, bu neyroşəbəkələr psixoterapevtlərə ` +
         `praktikalarında yaxşı kömək edir, həmçinin onların pasiyentlərinə ❤️`,
-      imageUrl: 'onboarding/credentials.png',
+      imageUrl: 'onboarding/w5.png',
       options: [
         { id: 'heavy_warning', label: 'Bəs ağır situasiya olarsa?', value: 'next' },
         { id: 'skip', label: 'Keç', value: 'skip' },

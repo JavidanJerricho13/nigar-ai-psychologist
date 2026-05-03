@@ -12,7 +12,7 @@ export class WhyNeedStep implements StepDefinition {
         `emosiyalarınla baş-başa qalma, daha şüurlu və harmonik yaşa.\n\n` +
         `Mənim üçün əhəmiyyətsiz mövzu və axmaq sual yoxdur. ` +
         `Hər zaman mənə yaza, məsləhət ala və heç bir mühakimə olmadan dəstək ala bilərsən.`,
-      imageUrl: 'onboarding/why-need.png',
+      imageUrl: 'onboarding/w2.png',
       options: [
         { id: 'what_discuss', label: 'Nə müzakirə edə bilərik?', value: 'next' },
         { id: 'skip', label: 'Keç', value: 'skip' },

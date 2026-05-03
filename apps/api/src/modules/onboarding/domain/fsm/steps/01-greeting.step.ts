@@ -14,6 +14,7 @@ export class GreetingStep implements StepDefinition {
         `Düşüncələrin, hisslərin və çətin situasiyalarla məşğul olmağa kömək edəcəm.\n\n` +
         `/nigar_black rejimində açıq danışa bilərsən — tibb, münasibətlər, manipulyasiyalar və s. Heç bir mühakimə yoxdur.\n\n` +
         `Mənə mətn və ya səs yaz istənilən vaxt 😊`,
+      imageUrl: 'onboarding/w1.png',
       options: [
         { id: 'why_need', label: 'Mənə nə üçün lazımdır?', value: 'next' },
         { id: 'skip_onboarding', label: 'Tanışlığı keç', value: 'skip' },
